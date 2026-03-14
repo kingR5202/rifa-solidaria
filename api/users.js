@@ -19,7 +19,7 @@ async function supabaseFetch(path, options = {}) {
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -29,9 +29,9 @@ export default async function handler(req, res) {
     }
 
     try {
-        // POST: Save/update user on login
+        // POST: Save/update user on checkout or login
         if (req.method === 'POST') {
-            const { phone } = req.body;
+            const { phone, name } = req.body;
 
             if (!phone) {
                 return res.status(400).json({ error: 'Telefone obrigatório' });
@@ -43,12 +43,15 @@ export default async function handler(req, res) {
             );
 
             if (existing.length > 0) {
-                // Update last_login
+                // Update last_login and name if provided
+                const updateData = { last_login: new Date().toISOString() };
+                if (name) updateData.name = name;
+
                 await supabaseFetch(
                     `users?phone=eq.${encodeURIComponent(phone)}`,
                     {
                         method: 'PATCH',
-                        body: JSON.stringify({ last_login: new Date().toISOString() }),
+                        body: JSON.stringify(updateData),
                     }
                 );
                 return res.status(200).json({ success: true, user: existing[0], isNew: false });
@@ -59,6 +62,7 @@ export default async function handler(req, res) {
                 method: 'POST',
                 body: JSON.stringify({
                     phone,
+                    name: name || '',
                     last_login: new Date().toISOString(),
                 }),
             });
@@ -72,6 +76,20 @@ export default async function handler(req, res) {
                 'users?select=*&order=created_at.desc'
             );
             return res.status(200).json({ users: data });
+        }
+
+        // DELETE: Delete user by id
+        if (req.method === 'DELETE') {
+            const { id } = req.query;
+            if (!id) {
+                return res.status(400).json({ error: 'ID obrigatório' });
+            }
+
+            await supabaseFetch(`users?id=eq.${id}`, {
+                method: 'DELETE',
+            });
+
+            return res.status(200).json({ success: true });
         }
 
     } catch (error) {

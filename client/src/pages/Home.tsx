@@ -50,7 +50,7 @@ export default function Home() {
           setPaymentStatus("paid");
           if (pollInterval.current) clearInterval(pollInterval.current);
 
-          // Save order to database after payment confirmed
+          // Save order and update transaction status
           if (customerData) {
             try {
               await fetch("/api/orders", {
@@ -62,6 +62,15 @@ export default function Home() {
                   customer_phone: customerData.phone,
                   quantity,
                   total_price: totalPrice,
+                }),
+              });
+              // Update transaction status to paid
+              await fetch("/api/transactions", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  transaction_id: pixData.transactionId,
+                  status: "paid",
                 }),
               });
             } catch (err) {
@@ -91,6 +100,18 @@ export default function Home() {
   const handleCheckoutConfirm = async (data: { name: string; phone: string }) => {
     setIsLoading(true);
     setCustomerData(data);
+
+    // Save user name + phone to database
+    try {
+      await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: data.phone, name: data.name }),
+      });
+    } catch (err) {
+      console.error("Save user error:", err);
+    }
+
     try {
       const amountCents = Math.round(totalPrice * 100);
 
@@ -127,6 +148,24 @@ export default function Home() {
       setPaymentStatus("pending");
       setIsCheckoutOpen(false);
       setIsPixOpen(true);
+
+      // Save PIX transaction to database
+      try {
+        await fetch("/api/transactions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            transaction_id: result.id,
+            customer_name: data.name,
+            customer_phone: data.phone,
+            quantity,
+            total_price: totalPrice,
+            pix_code: pixCode,
+          }),
+        });
+      } catch (err) {
+        console.error("Save transaction error:", err);
+      }
     } catch (error) {
       console.error("Checkout error:", error);
       alert("Erro ao gerar PIX. Tente novamente.");
