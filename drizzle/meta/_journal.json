@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1773430719956,
+      "tag": "0000_mysterious_klaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1773431734469,
+      "tag": "0001_busy_slayback",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1773433391219,
+      "tag": "0002_lowly_cloak",
+      "breakpoints": true
+    }
+  ]
+}
