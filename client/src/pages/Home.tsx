@@ -164,10 +164,10 @@ export default function Home() {
         <QuantitySelector onQuantityChange={handleQuantityChange} />
 
         {/* CTA Button */}
-        <div className="flex justify-center pt-4">
+        <div className="pt-4">
           <Button
             onClick={handleParticipate}
-            className="bg-green-500 text-black hover:bg-green-600 font-bold px-12 py-4 text-xl md:text-2xl rounded-lg transition-all hover:scale-105 shadow-lg"
+            className="w-full bg-green-500 text-black hover:bg-green-600 font-bold py-6 text-2xl md:text-3xl rounded-xl transition-all hover:scale-105 shadow-lg shadow-green-500/30"
           >
             QUERO AJUDAR
           </Button>
