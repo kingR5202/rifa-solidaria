@@ -140,10 +140,6 @@ export default function Home() {
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
         {/* Hero Section */}
         <section className="space-y-4">
-          <div className="bg-green-500 text-black px-4 py-3 rounded-lg font-bold text-center text-sm md:text-base">
-            🎗️ RIFA SOLIDÁRIA – AJUDE A RECONSTRUIR O SONHO DA ITALIANCAR, ATINGIDA POR UM INCÊNDIO
-          </div>
-
           <p className="text-gray-300 text-center">
             Em poucos minutos, o fogo destruiu <strong>16 carros</strong>, além da estrutura, ferramentas e anos de trabalho construídos com muito esforço.
           </p>
@@ -157,8 +153,16 @@ export default function Home() {
           </p>
         </section>
 
-        {/* Carousel */}
-        <Carousel />
+        {/* Badge + Title over Carousel */}
+        <section className="space-y-3">
+          <span className="inline-block bg-yellow-400 text-black text-sm font-bold px-3 py-1 rounded animate-pulse">
+            Adquira já!
+          </span>
+          <h2 className="text-white font-bold text-lg md:text-xl leading-tight">
+            🎗️ RIFA SOLIDÁRIA – AJUDE A RECONSTRUIR O SONHO DA ITALIANCAR, ATINGIDA POR UM INCÊNDIO
+          </h2>
+          <Carousel />
+        </section>
 
         {/* Quantity Selector */}
         <QuantitySelector onQuantityChange={handleQuantityChange} />
