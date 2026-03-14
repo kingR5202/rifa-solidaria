@@ -21,6 +21,13 @@ interface Stats {
   unique_customers: number;
 }
 
+interface User {
+  id: number;
+  phone: string;
+  last_login: string;
+  created_at: string;
+}
+
 export default function Admin() {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -29,6 +36,8 @@ export default function Admin() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [activeTab, setActiveTab] = useState<"orders" | "users">("orders");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +59,12 @@ export default function Admin() {
       setStats(data.stats);
       setIsAuthenticated(true);
       sessionStorage.setItem("admin_token", password);
+      // Fetch users
+      try {
+        const usersRes = await fetch("/api/users");
+        const usersData = await usersRes.json();
+        setUsers(usersData.users || []);
+      } catch {}
     } catch (err: any) {
       setError(err?.message || "Erro ao conectar");
     } finally {
@@ -67,6 +82,11 @@ export default function Admin() {
       setOrders(data.orders);
       setStats(data.stats);
       setIsAuthenticated(true);
+      try {
+        const usersRes = await fetch("/api/users");
+        const usersData = await usersRes.json();
+        setUsers(usersData.users || []);
+      } catch {}
     } catch {
       sessionStorage.removeItem("admin_token");
     }
@@ -227,7 +247,32 @@ export default function Admin() {
           </div>
         )}
 
+        {/* Tabs */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab("orders")}
+            className={`px-6 py-3 rounded-lg font-bold transition-colors ${
+              activeTab === "orders"
+                ? "bg-yellow-400 text-black"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+            }`}
+          >
+            Pedidos ({orders.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("users")}
+            className={`px-6 py-3 rounded-lg font-bold transition-colors ${
+              activeTab === "users"
+                ? "bg-yellow-400 text-black"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+            }`}
+          >
+            Usuários ({users.length})
+          </button>
+        </div>
+
         {/* Orders Table */}
+        {activeTab === "orders" && (
         <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl overflow-hidden">
           <div className="p-4 border-b border-gray-600/30">
             <h2 className="text-lg font-bold text-white">
@@ -390,6 +435,76 @@ export default function Admin() {
             </div>
           )}
         </div>
+        )}
+
+        {/* Users Table */}
+        {activeTab === "users" && (
+        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl overflow-hidden">
+          <div className="p-4 border-b border-gray-600/30">
+            <h2 className="text-lg font-bold text-white">
+              Usuários Cadastrados ({users.length})
+            </h2>
+          </div>
+
+          {users.length === 0 ? (
+            <div className="p-8 text-center text-gray-400">
+              Nenhum usuário encontrado
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              {/* Desktop table */}
+              <table className="w-full text-sm hidden md:table">
+                <thead>
+                  <tr className="border-b border-gray-600/30 text-gray-400">
+                    <th className="text-left p-3">ID</th>
+                    <th className="text-left p-3">Telefone</th>
+                    <th className="text-left p-3">Cadastro</th>
+                    <th className="text-left p-3">Último Login</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr
+                      key={user.id}
+                      className="border-b border-gray-600/10 hover:bg-gray-800/30 transition-colors"
+                    >
+                      <td className="p-3 text-gray-400">#{user.id}</td>
+                      <td className="p-3 text-white font-medium">
+                        {user.phone}
+                      </td>
+                      <td className="p-3 text-gray-300">
+                        {formatDate(user.created_at)}
+                      </td>
+                      <td className="p-3 text-gray-300">
+                        {formatDate(user.last_login)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Mobile cards */}
+              <div className="md:hidden space-y-3 p-4">
+                {users.map((user) => (
+                  <div
+                    key={user.id}
+                    className="bg-black/30 border border-gray-600/30 rounded-xl p-4 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400 text-xs">#{user.id}</span>
+                    </div>
+                    <p className="text-white font-bold">{user.phone}</p>
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>Cadastro: {formatDate(user.created_at)}</span>
+                      <span>Login: {formatDate(user.last_login)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        )}
       </main>
     </div>
   );

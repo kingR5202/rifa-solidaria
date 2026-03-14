@@ -140,8 +140,17 @@ export default function Home() {
     if (pollInterval.current) clearInterval(pollInterval.current);
   };
 
-  const handleLogin = (phone: string) => {
+  const handleLogin = async (phone: string) => {
     setIsLoginLoading(true);
+    try {
+      await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+    } catch (err) {
+      console.error("Save user error:", err);
+    }
     setLoggedPhone(phone);
     setIsLoginOpen(false);
     setIsLoginLoading(false);
