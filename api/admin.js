@@ -1,13 +1,15 @@
-import mysql from 'mysql2/promise';
+import pg from 'pg';
+
+const { Pool } = pg;
 
 let pool = null;
 
 function getPool() {
     if (!pool) {
-        pool = mysql.createPool({
-            uri: process.env.DATABASE_URL,
-            waitForConnections: true,
-            connectionLimit: 5,
+        pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: { rejectUnauthorized: false },
+            max: 5,
         });
     }
     return pool;
@@ -37,25 +39,25 @@ export default async function handler(req, res) {
 
         if (req.method === 'GET') {
             // Get all orders
-            const [orders] = await db.execute(
+            const ordersResult = await db.query(
                 `SELECT id, transaction_id, customer_name, customer_phone, quantity, total_price, payment_status, codes, created_at
                  FROM orders
                  ORDER BY created_at DESC`
             );
 
             // Summary stats
-            const [stats] = await db.execute(
+            const statsResult = await db.query(
                 `SELECT
                     COUNT(*) as total_orders,
-                    SUM(quantity) as total_titles,
-                    SUM(total_price) as total_revenue,
+                    COALESCE(SUM(quantity), 0) as total_titles,
+                    COALESCE(SUM(total_price), 0) as total_revenue,
                     COUNT(DISTINCT customer_phone) as unique_customers
                  FROM orders`
             );
 
             return res.status(200).json({
-                orders,
-                stats: stats[0],
+                orders: ordersResult.rows,
+                stats: statsResult.rows[0],
             });
         }
 

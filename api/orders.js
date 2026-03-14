@@ -1,13 +1,15 @@
-import mysql from 'mysql2/promise';
+import pg from 'pg';
+
+const { Pool } = pg;
 
 let pool = null;
 
 function getPool() {
     if (!pool) {
-        pool = mysql.createPool({
-            uri: process.env.DATABASE_URL,
-            waitForConnections: true,
-            connectionLimit: 5,
+        pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: { rejectUnauthorized: false },
+            max: 5,
         });
     }
     return pool;
@@ -20,9 +22,9 @@ function generateCode() {
 
 async function ensureTable() {
     const db = getPool();
-    await db.execute(`
+    await db.query(`
         CREATE TABLE IF NOT EXISTS orders (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id SERIAL PRIMARY KEY,
             transaction_id VARCHAR(255),
             customer_name VARCHAR(255) NOT NULL,
             customer_phone VARCHAR(20) NOT NULL,
@@ -65,15 +67,16 @@ export default async function handler(req, res) {
             }
             const codesStr = codes.join(',');
 
-            const [result] = await db.execute(
+            const result = await db.query(
                 `INSERT INTO orders (transaction_id, customer_name, customer_phone, quantity, total_price, payment_status, codes)
-                 VALUES (?, ?, ?, ?, ?, 'paid', ?)`,
+                 VALUES ($1, $2, $3, $4, $5, 'paid', $6)
+                 RETURNING id`,
                 [transaction_id || '', customer_name, customer_phone, quantity, total_price, codesStr]
             );
 
             return res.status(200).json({
                 success: true,
-                orderId: result.insertId,
+                orderId: result.rows[0].id,
                 codes,
             });
         }
@@ -89,15 +92,15 @@ export default async function handler(req, res) {
             // Clean phone - remove formatting, keep only digits
             const cleanPhone = phone.replace(/\D/g, '');
 
-            const [rows] = await db.execute(
+            const result = await db.query(
                 `SELECT id, transaction_id, customer_name, quantity, total_price, payment_status, codes, created_at
                  FROM orders
-                 WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(customer_phone, '(', ''), ')', ''), '-', ''), ' ', ''), '+', '') LIKE ?
+                 WHERE REGEXP_REPLACE(customer_phone, '[^0-9]', '', 'g') LIKE $1
                  ORDER BY created_at DESC`,
                 [`%${cleanPhone}%`]
             );
 
-            return res.status(200).json({ orders: rows });
+            return res.status(200).json({ orders: result.rows });
         }
 
     } catch (error) {
