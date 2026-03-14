@@ -1,21 +1,21 @@
-import pg from 'pg';
-
-const { Pool } = pg;
-
-let pool = null;
-
-function getPool() {
-    if (!pool) {
-        pool = new Pool({
-            connectionString: process.env.DATABASE_URL,
-            ssl: { rejectUnauthorized: false },
-            max: 5,
-        });
-    }
-    return pool;
-}
-
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'italiancar2024';
+
+async function supabaseFetch(path, options = {}) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        ...options,
+        headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            ...options.headers,
+        },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || JSON.stringify(data));
+    return data;
+}
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -30,35 +30,26 @@ export default async function handler(req, res) {
         return res.status(401).json({ error: 'Não autorizado' });
     }
 
-    if (!process.env.DATABASE_URL) {
-        return res.status(500).json({ error: 'DATABASE_URL não configurada' });
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+        return res.status(500).json({ error: 'SUPABASE_URL ou SUPABASE_KEY não configuradas' });
     }
 
     try {
-        const db = getPool();
-
         if (req.method === 'GET') {
             // Get all orders
-            const ordersResult = await db.query(
-                `SELECT id, transaction_id, customer_name, customer_phone, quantity, total_price, payment_status, codes, created_at
-                 FROM orders
-                 ORDER BY created_at DESC`
+            const orders = await supabaseFetch(
+                'orders?select=id,transaction_id,customer_name,customer_phone,quantity,total_price,payment_status,codes,created_at&order=created_at.desc'
             );
 
-            // Summary stats
-            const statsResult = await db.query(
-                `SELECT
-                    COUNT(*) as total_orders,
-                    COALESCE(SUM(quantity), 0) as total_titles,
-                    COALESCE(SUM(total_price), 0) as total_revenue,
-                    COUNT(DISTINCT customer_phone) as unique_customers
-                 FROM orders`
-            );
+            // Calculate stats from results
+            const stats = {
+                total_orders: orders.length,
+                total_titles: orders.reduce((sum, o) => sum + (o.quantity || 0), 0),
+                total_revenue: orders.reduce((sum, o) => sum + parseFloat(o.total_price || 0), 0),
+                unique_customers: new Set(orders.map(o => o.customer_phone)).size,
+            };
 
-            return res.status(200).json({
-                orders: ordersResult.rows,
-                stats: statsResult.rows[0],
-            });
+            return res.status(200).json({ orders, stats });
         }
 
         return res.status(405).json({ error: 'Método não permitido' });

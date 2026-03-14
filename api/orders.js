@@ -1,40 +1,25 @@
-import pg from 'pg';
-
-const { Pool } = pg;
-
-let pool = null;
-
-function getPool() {
-    if (!pool) {
-        pool = new Pool({
-            connectionString: process.env.DATABASE_URL,
-            ssl: { rejectUnauthorized: false },
-            max: 5,
-        });
-    }
-    return pool;
-}
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
 // Generate random 6-digit title code
 function generateCode() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-async function ensureTable() {
-    const db = getPool();
-    await db.query(`
-        CREATE TABLE IF NOT EXISTS orders (
-            id SERIAL PRIMARY KEY,
-            transaction_id VARCHAR(255),
-            customer_name VARCHAR(255) NOT NULL,
-            customer_phone VARCHAR(20) NOT NULL,
-            quantity INT NOT NULL DEFAULT 1,
-            total_price DECIMAL(10,2) NOT NULL,
-            payment_status VARCHAR(20) NOT NULL DEFAULT 'pending',
-            codes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
+async function supabaseFetch(path, options = {}) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        ...options,
+        headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': options.prefer || 'return=representation',
+            ...options.headers,
+        },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || JSON.stringify(data));
+    return data;
 }
 
 export default async function handler(req, res) {
@@ -44,14 +29,11 @@ export default async function handler(req, res) {
 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    if (!process.env.DATABASE_URL) {
-        return res.status(500).json({ error: 'DATABASE_URL não configurada' });
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+        return res.status(500).json({ error: 'SUPABASE_URL ou SUPABASE_KEY não configuradas' });
     }
 
     try {
-        await ensureTable();
-        const db = getPool();
-
         // POST: Save new order after payment
         if (req.method === 'POST') {
             const { transaction_id, customer_name, customer_phone, quantity, total_price } = req.body;
@@ -67,16 +49,22 @@ export default async function handler(req, res) {
             }
             const codesStr = codes.join(',');
 
-            const result = await db.query(
-                `INSERT INTO orders (transaction_id, customer_name, customer_phone, quantity, total_price, payment_status, codes)
-                 VALUES ($1, $2, $3, $4, $5, 'paid', $6)
-                 RETURNING id`,
-                [transaction_id || '', customer_name, customer_phone, quantity, total_price, codesStr]
-            );
+            const data = await supabaseFetch('orders', {
+                method: 'POST',
+                body: JSON.stringify({
+                    transaction_id: transaction_id || '',
+                    customer_name,
+                    customer_phone,
+                    quantity,
+                    total_price,
+                    payment_status: 'paid',
+                    codes: codesStr,
+                }),
+            });
 
             return res.status(200).json({
                 success: true,
-                orderId: result.rows[0].id,
+                orderId: data[0]?.id,
                 codes,
             });
         }
@@ -92,15 +80,11 @@ export default async function handler(req, res) {
             // Clean phone - remove formatting, keep only digits
             const cleanPhone = phone.replace(/\D/g, '');
 
-            const result = await db.query(
-                `SELECT id, transaction_id, customer_name, quantity, total_price, payment_status, codes, created_at
-                 FROM orders
-                 WHERE REGEXP_REPLACE(customer_phone, '[^0-9]', '', 'g') LIKE $1
-                 ORDER BY created_at DESC`,
-                [`%${cleanPhone}%`]
+            const data = await supabaseFetch(
+                `orders?select=id,transaction_id,customer_name,quantity,total_price,payment_status,codes,created_at&customer_phone=ilike.*${cleanPhone}*&order=created_at.desc`
             );
 
-            return res.status(200).json({ orders: result.rows });
+            return res.status(200).json({ orders: data });
         }
 
     } catch (error) {
