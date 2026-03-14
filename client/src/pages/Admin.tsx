@@ -40,17 +40,18 @@ export default function Admin() {
         headers: { Authorization: `Bearer ${password}` },
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        throw new Error("Senha incorreta");
+        throw new Error(data.error || "Senha incorreta");
       }
 
-      const data = await res.json();
       setOrders(data.orders);
       setStats(data.stats);
       setIsAuthenticated(true);
       sessionStorage.setItem("admin_token", password);
-    } catch {
-      setError("Senha incorreta");
+    } catch (err: any) {
+      setError(err?.message || "Erro ao conectar");
     } finally {
       setIsLoading(false);
     }
