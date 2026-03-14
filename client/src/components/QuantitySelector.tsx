@@ -28,14 +28,14 @@ export function QuantitySelector({ onQuantityChange }: QuantitySelectorProps) {
           <button
             key={preset}
             onClick={() => handleQuantityChange(preset)}
-            className={`py-3 px-2 rounded font-bold text-sm transition-colors ${
+            className={`py-4 px-2 rounded font-bold transition-colors ${
               quantity === preset
                 ? "bg-green-500 text-black"
                 : "bg-green-500/30 text-white hover:bg-green-500/50"
             }`}
           >
-            +{preset}
-            <div className="text-xs mt-1">R$ {(preset * PRICE_PER_TITLE).toFixed(2)}</div>
+            <div className="text-3xl md:text-4xl">+{preset}</div>
+            <div className="text-xs mt-1 uppercase tracking-wide">Selecionar</div>
           </button>
         ))}
       </div>

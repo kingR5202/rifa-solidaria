@@ -64,11 +64,11 @@ export const appRouter = router({
             pixCopyPaste: pixCharge.copy_paste,
           });
 
-          // Notify owner about new payment
-          await notifyOwner({
+          // Notify owner about new payment (non-blocking)
+          notifyOwner({
             title: "🎗️ Nova Rifa Iniciada",
             content: `${input.name} (${input.phone}) iniciou uma compra de ${input.quantity} título(s) - R$ ${input.totalPrice.toFixed(2)}`,
-          });
+          }).catch((err) => console.warn("[Notification] Failed:", err));
 
           return {
             success: true,

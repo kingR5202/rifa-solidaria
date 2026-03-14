@@ -133,8 +133,8 @@ export async function createPixCharge(
   data: SafefyPayChargeRequest
 ): Promise<SafefyPayChargeResponse> {
   try {
-    // Offline mode - return mock data
-    if (ENV.safefyOfflineMode) {
+    // Offline mode - return mock data (auto-enable if keys not configured)
+    if (ENV.safefyOfflineMode || !ENV.safefyPublicKey || !ENV.safefySecretKey) {
       console.log("[SafefyPay] Offline mode enabled - returning mock PIX charge");
       const mockId = `test_${data.reference_id}_${Date.now()}`;
       const pixCode = generateMockPixCode(mockId);

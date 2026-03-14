@@ -18,6 +18,25 @@ export async function getDb() {
   return _db;
 }
 
+// ============================================================================
+// In-memory fallback when no MySQL database is configured
+// ============================================================================
+const memoryOrders = new Map<number, {
+  id: number;
+  customerName: string;
+  customerPhone: string;
+  quantity: number;
+  totalPrice: string;
+  paymentStatus: string;
+  transactionId: string | null;
+  pixQrCode: string | null;
+  pixCopyPaste: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}>();
+const memoryCodes = new Map<number, { orderId: number; code: string }[]>();
+let memoryOrderIdCounter = 1;
+
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
     throw new Error("User openId is required for upsert");
@@ -89,12 +108,28 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
-
 export async function createOrder(order: InsertOrder) {
   const db = await getDb();
+
+  // Fallback: in-memory storage
   if (!db) {
-    throw new Error("Database not available");
+    console.warn("[Database] Using in-memory fallback for createOrder");
+    const id = memoryOrderIdCounter++;
+    const now = new Date();
+    memoryOrders.set(id, {
+      id,
+      customerName: order.customerName ?? "",
+      customerPhone: order.customerPhone ?? "",
+      quantity: order.quantity ?? 1,
+      totalPrice: order.totalPrice ?? "0",
+      paymentStatus: order.paymentStatus ?? "pending",
+      transactionId: null,
+      pixQrCode: null,
+      pixCopyPaste: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { insertId: id };
   }
 
   try {
@@ -108,8 +143,14 @@ export async function createOrder(order: InsertOrder) {
 
 export async function updateOrder(orderId: number, updates: Partial<InsertOrder>) {
   const db = await getDb();
+
+  // Fallback: in-memory storage
   if (!db) {
-    throw new Error("Database not available");
+    const existing = memoryOrders.get(orderId);
+    if (existing) {
+      Object.assign(existing, updates, { updatedAt: new Date() });
+    }
+    return;
   }
 
   try {
@@ -123,8 +164,10 @@ export async function updateOrder(orderId: number, updates: Partial<InsertOrder>
 
 export async function getOrderById(orderId: number) {
   const db = await getDb();
+
+  // Fallback: in-memory storage
   if (!db) {
-    throw new Error("Database not available");
+    return memoryOrders.get(orderId);
   }
 
   try {
@@ -138,8 +181,15 @@ export async function getOrderById(orderId: number) {
 
 export async function createGeneratedCodes(codes: InsertGeneratedCode[]) {
   const db = await getDb();
+
+  // Fallback: in-memory storage
   if (!db) {
-    throw new Error("Database not available");
+    for (const code of codes) {
+      const existing = memoryCodes.get(code.orderId) || [];
+      existing.push({ orderId: code.orderId, code: code.code });
+      memoryCodes.set(code.orderId, existing);
+    }
+    return;
   }
 
   try {
@@ -153,8 +203,10 @@ export async function createGeneratedCodes(codes: InsertGeneratedCode[]) {
 
 export async function getCodesByOrderId(orderId: number) {
   const db = await getDb();
+
+  // Fallback: in-memory storage
   if (!db) {
-    throw new Error("Database not available");
+    return memoryCodes.get(orderId) || [];
   }
 
   try {
