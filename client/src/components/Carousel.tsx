@@ -2,7 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { IMAGE_URLS } from "@shared/imageUrls";
 
-export function Carousel() {
+interface CarouselProps {
+  onMeusTitulos?: () => void;
+}
+
+export function Carousel({ onMeusTitulos }: CarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
@@ -118,9 +122,20 @@ export function Carousel() {
         {currentIndex + 1}/{images.length}
       </div>
 
-      {/* Auto-play Indicator (Desktop) */}
-      <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded font-bold text-xs hidden md:block">
-        {isAutoPlay ? "▶ Auto" : "⏸ Manual"}
+      {/* Overlay: Title + Meus Títulos over image */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-16 pb-4 px-4">
+        <p className="text-white font-bold text-sm md:text-base leading-tight">
+          🎗️ RIFA SOLIDÁRIA – AJUDE A RECONSTRUIR O SONHO DA ITALIANCAR, ATINGIDA POR UM INCÊNDIO
+        </p>
+        {onMeusTitulos && (
+          <button
+            onClick={onMeusTitulos}
+            className="mt-3 flex items-center gap-1 text-white text-sm mx-auto hover:text-gray-300 transition-colors"
+          >
+            <span>🛒</span>
+            <span className="font-bold">MEUS TÍTULOS</span>
+          </button>
+        )}
       </div>
     </div>
   );

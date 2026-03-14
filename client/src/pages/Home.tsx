@@ -216,15 +216,12 @@ export default function Home() {
           </p>
         </section>
 
-        {/* Badge + Title over Carousel */}
+        {/* Badge + Carousel with overlay */}
         <section className="space-y-3">
           <span className="inline-block bg-yellow-400 text-black text-sm font-bold px-3 py-1 rounded animate-pulse">
             Adquira já!
           </span>
-          <h2 className="text-white font-bold text-lg md:text-xl leading-tight">
-            🎗️ RIFA SOLIDÁRIA – AJUDE A RECONSTRUIR O SONHO DA ITALIANCAR, ATINGIDA POR UM INCÊNDIO
-          </h2>
-          <Carousel />
+          <Carousel onMeusTitulos={handleMeusTitulos} />
         </section>
 
         {/* Quantity Selector */}
