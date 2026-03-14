@@ -216,13 +216,8 @@ export default function Home() {
           </p>
         </section>
 
-        {/* Badge + Carousel with overlay */}
-        <section className="space-y-3">
-          <span className="inline-block bg-yellow-400 text-black text-sm font-bold px-3 py-1 rounded animate-pulse">
-            Adquira já!
-          </span>
-          <Carousel onMeusTitulos={handleMeusTitulos} />
-        </section>
+        {/* Carousel with overlay (Adquira já + title + meus títulos) */}
+        <Carousel onMeusTitulos={handleMeusTitulos} />
 
         {/* Quantity Selector */}
         <QuantitySelector onQuantityChange={handleQuantityChange} />

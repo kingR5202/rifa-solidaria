@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ShoppingCart } from "lucide-react";
 import { IMAGE_URLS } from "@shared/imageUrls";
 
 interface CarouselProps {
@@ -67,6 +67,7 @@ export function Carousel({ onMeusTitulos }: CarouselProps) {
   };
 
   return (
+    <>
     <div
       className="relative w-full max-w-2xl mx-auto bg-black rounded-lg overflow-hidden cursor-grab active:cursor-grabbing"
       onTouchStart={handleTouchStart}
@@ -99,44 +100,32 @@ export function Carousel({ onMeusTitulos }: CarouselProps) {
         <ChevronRight size={24} />
       </button>
 
-      {/* Indicator Dots */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-        {images.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => {
-              setCurrentIndex(index);
-              setIsAutoPlay(false);
-              setTimeout(() => setIsAutoPlay(true), 5000);
-            }}
-            className={`w-2 h-2 rounded-full transition-colors ${
-              index === currentIndex ? "bg-green-500" : "bg-white/50"
-            }`}
-            aria-label={`Ir para imagem ${index + 1}`}
-          />
-        ))}
-      </div>
-
       {/* Image Counter */}
-      <div className="absolute top-4 right-4 bg-green-500 text-black px-3 py-1 rounded font-bold text-sm">
+      <div className="absolute top-4 right-4 bg-green-500 text-black px-3 py-1 rounded font-bold text-sm z-10">
         {currentIndex + 1}/{images.length}
       </div>
 
-      {/* Overlay: Title + Meus Títulos over image */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-16 pb-4 px-4">
+      {/* Overlay: Adquira já + Title over image with gradient */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/70 to-transparent pt-20 pb-4 px-4 z-10">
+        <span className="inline-block bg-yellow-400 text-black text-xs font-bold px-3 py-1 rounded mb-2 animate-pulse">
+          Adquira já!
+        </span>
         <p className="text-white font-bold text-sm md:text-base leading-tight">
           🎗️ RIFA SOLIDÁRIA – AJUDE A RECONSTRUIR O SONHO DA ITALIANCAR, ATINGIDA POR UM INCÊNDIO
         </p>
-        {onMeusTitulos && (
-          <button
-            onClick={onMeusTitulos}
-            className="mt-3 flex items-center gap-1 text-white text-sm mx-auto hover:text-gray-300 transition-colors"
-          >
-            <span>🛒</span>
-            <span className="font-bold">MEUS TÍTULOS</span>
-          </button>
-        )}
       </div>
     </div>
+
+    {/* Meus Títulos bar below carousel */}
+    {onMeusTitulos && (
+      <button
+        onClick={onMeusTitulos}
+        className="w-full max-w-2xl mx-auto flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border border-gray-700/50 rounded-b-lg hover:from-gray-800 hover:to-gray-800 transition-all -mt-1"
+      >
+        <ShoppingCart size={18} className="text-white" />
+        <span className="text-white font-bold text-sm">MEUS TÍTULOS</span>
+      </button>
+    )}
+    </>
   );
 }
