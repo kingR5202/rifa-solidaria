@@ -32,10 +32,10 @@ export function LoginModal({ isOpen, onClose, onLogin, isLoading }: LoginModalPr
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-2xl max-w-sm w-full border border-gray-700 shadow-2xl">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
+      <div className="bg-gray-900/40 backdrop-blur-xl rounded-2xl max-w-sm w-full border border-gray-600/30 shadow-2xl animate-scaleIn">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-600/30">
           <div className="flex items-center gap-2">
             <KeyRound size={20} className="text-white" />
             <span className="text-white font-bold text-lg">Login</span>
@@ -51,7 +51,7 @@ export function LoginModal({ isOpen, onClose, onLogin, isLoading }: LoginModalPr
             <label className="block text-yellow-400 text-sm font-bold mb-2">
               Telefone
             </label>
-            <div className="flex items-center bg-gray-800 border border-gray-600 rounded-lg overflow-hidden">
+            <div className="flex items-center bg-black/30 border border-gray-600/50 backdrop-blur-sm rounded-lg overflow-hidden">
               <span className="text-green-400 font-bold px-3 text-sm">+55</span>
               <input
                 type="tel"
@@ -67,7 +67,7 @@ export function LoginModal({ isOpen, onClose, onLogin, isLoading }: LoginModalPr
           <button
             type="submit"
             disabled={isLoading || phone.length < 14}
-            className="w-full bg-yellow-400 text-black font-bold py-4 text-lg rounded-lg hover:bg-yellow-300 transition-colors disabled:opacity-50"
+            className="w-full bg-yellow-400 text-black font-bold py-4 text-lg rounded-lg hover:bg-yellow-300 transition-colors disabled:opacity-50 animate-glow"
           >
             {isLoading ? "Carregando..." : "Continuar"}
           </button>

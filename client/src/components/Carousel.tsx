@@ -11,6 +11,7 @@ export function Carousel({ onMeusTitulos }: CarouselProps) {
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(true);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const images = IMAGE_URLS.carousel;
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -19,7 +20,11 @@ export function Carousel({ onMeusTitulos }: CarouselProps) {
     if (!isAutoPlay) return;
 
     autoPlayRef.current = setInterval(() => {
-      setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+        setIsTransitioning(false);
+      }, 300);
     }, 5000); // Muda a cada 5 segundos
 
     return () => {
@@ -28,13 +33,21 @@ export function Carousel({ onMeusTitulos }: CarouselProps) {
   }, [isAutoPlay, images.length]);
 
   const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+      setIsTransitioning(false);
+    }, 300);
     setIsAutoPlay(false);
     setTimeout(() => setIsAutoPlay(true), 5000);
   };
 
   const goToNext = () => {
-    setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+      setIsTransitioning(false);
+    }, 300);
     setIsAutoPlay(false);
     setTimeout(() => setIsAutoPlay(true), 5000);
   };
@@ -78,7 +91,7 @@ export function Carousel({ onMeusTitulos }: CarouselProps) {
         <img
           src={images[currentIndex]}
           alt={`Campanha ItalianCar - Imagem ${currentIndex + 1}`}
-          className="w-full h-full object-cover transition-opacity duration-300"
+          className={`w-full h-full object-cover transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}
           draggable={false}
         />
       </div>
@@ -120,7 +133,7 @@ export function Carousel({ onMeusTitulos }: CarouselProps) {
     {onMeusTitulos && (
       <button
         onClick={onMeusTitulos}
-        className="w-full max-w-2xl mx-auto flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border border-gray-700/50 rounded-b-lg hover:from-gray-800 hover:to-gray-800 transition-all -mt-1"
+        className="w-full max-w-2xl mx-auto flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-black via-gray-500/30 to-black border border-gray-700/50 rounded-b-lg hover:from-gray-800 hover:to-gray-800 transition-all -mt-1 animate-shimmer"
       >
         <ShoppingCart size={18} className="text-white" />
         <span className="text-white font-bold text-sm">MEUS TÍTULOS</span>

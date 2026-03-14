@@ -67,8 +67,8 @@ export function PixModal({
 
   if (paymentStatus === "paid") {
     return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-        <div className="bg-gray-900/40 backdrop-blur-xl rounded-3xl max-w-md w-full border border-green-500/50 shadow-2xl p-8 text-center">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
+        <div className="bg-gray-900/40 backdrop-blur-xl rounded-3xl max-w-md w-full border border-green-500/50 shadow-2xl p-8 text-center animate-scaleIn">
           <div className="text-6xl mb-4">✅</div>
           <h2 className="text-2xl font-bold text-green-400 mb-2">Pagamento Confirmado!</h2>
           <p className="text-gray-300 mb-2">
@@ -89,8 +89,8 @@ export function PixModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-hidden">
-      <div className="bg-gray-900/40 backdrop-blur-xl rounded-3xl max-w-md w-full border border-gray-600/30 shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-hide">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-hidden animate-fadeIn">
+      <div className="bg-gray-900/40 backdrop-blur-xl rounded-3xl max-w-md w-full border border-gray-600/30 shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-hide animate-scaleIn">
         {/* Header */}
         <div className="flex items-center justify-center p-4 border-b border-gray-600/20 sticky top-0 bg-gray-900/40 backdrop-blur-xl rounded-t-3xl">
           <h2 className="text-xl font-bold text-white">Pagamento PIX</h2>

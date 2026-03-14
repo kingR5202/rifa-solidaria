@@ -28,7 +28,7 @@ export function QuantitySelector({ onQuantityChange }: QuantitySelectorProps) {
           <button
             key={preset}
             onClick={() => handleQuantityChange(preset)}
-            className={`py-4 px-2 rounded font-bold transition-colors ${
+            className={`py-4 px-2 rounded font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${
               quantity === preset
                 ? "bg-green-500 text-black"
                 : "bg-green-500/30 text-white hover:bg-green-500/50"

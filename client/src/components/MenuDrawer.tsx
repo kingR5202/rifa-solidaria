@@ -13,12 +13,12 @@ export function MenuDrawer({ isOpen, onClose, onMeusTitulos, onEntrar }: MenuDra
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 z-50 animate-fadeIn" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="fixed top-0 right-0 h-full w-72 bg-gray-900 border-l border-gray-700 z-50 flex flex-col shadow-2xl">
+      <div className="fixed top-0 right-0 h-full w-72 bg-gray-900/40 backdrop-blur-xl border-l border-gray-600/30 z-50 flex flex-col shadow-2xl animate-slideInRight">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-600/30">
           <div className="flex items-center gap-2">
             <span className="text-white text-lg">≡</span>
             <span className="text-white font-bold">Menu</span>
@@ -48,10 +48,10 @@ export function MenuDrawer({ isOpen, onClose, onMeusTitulos, onEntrar }: MenuDra
         </div>
 
         {/* Entrar Button */}
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 border-t border-gray-600/30">
           <button
             onClick={() => { onClose(); onEntrar(); }}
-            className="w-full flex items-center justify-center gap-2 bg-yellow-400 text-black font-bold py-3 px-4 rounded-lg hover:bg-yellow-300 transition-colors text-lg"
+            className="w-full flex items-center justify-center gap-2 bg-yellow-400 text-black font-bold py-3 px-4 rounded-lg hover:bg-yellow-300 transition-all duration-300 text-lg animate-glow"
           >
             <LogIn size={20} />
             <span>Entrar</span>

@@ -226,7 +226,7 @@ export default function Home() {
         <div className="pt-4">
           <Button
             onClick={handleParticipate}
-            className="w-full bg-green-500 text-black hover:bg-green-600 font-bold py-6 text-2xl md:text-3xl rounded-xl transition-all hover:scale-105 shadow-lg shadow-green-500/30"
+            className="w-full bg-green-500 text-black hover:bg-green-600 font-bold py-6 text-2xl md:text-3xl rounded-xl transition-all hover:scale-105 shadow-lg shadow-green-500/30 animate-glow"
           >
             QUERO AJUDAR
           </Button>
