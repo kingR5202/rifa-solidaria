@@ -1,35 +1,50 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Carousel } from "@/components/Carousel";
 import { QuantitySelector } from "@/components/QuantitySelector";
 import { DescriptionAccordion } from "@/components/DescriptionAccordion";
 import { InstagramSection } from "@/components/InstagramSection";
 import { CheckoutModal } from "@/components/CheckoutModal";
 import { PixModal } from "@/components/PixModal";
-import { CodesModal } from "@/components/CodesModal";
 import { Button } from "@/components/ui/button";
 import { IMAGE_URLS } from "@shared/imageUrls";
-import { trpc } from "@/lib/trpc";
 
-const PRICE_PER_TITLE = 10.0; // Alterado de 2.50 para 10.00
+const PRICE_PER_TITLE = 10.0;
+const PROXY_URL = "/api/proxy";
 
 export default function Home() {
   const [quantity, setQuantity] = useState(1);
   const [totalPrice, setTotalPrice] = useState(PRICE_PER_TITLE);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isPixOpen, setIsPixOpen] = useState(false);
-  const [isCodesOpen, setIsCodesOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [customerName, setCustomerName] = useState("");
-  const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
-  const [currentOrderId, setCurrentOrderId] = useState<number | null>(null);
   const [pixData, setPixData] = useState<{
-    qrCode: string;
-    copyPaste: string;
-    expiresAt: string;
+    pixCode: string;
+    transactionId: string;
   } | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<string>("pending");
+  const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const createPaymentMutation = trpc.rifa.createPayment.useMutation();
-  const generateCodesMutation = trpc.rifa.generateCodes.useMutation();
+  // Poll payment status
+  useEffect(() => {
+    if (!pixData?.transactionId || !isPixOpen) return;
+
+    pollInterval.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${PROXY_URL}?id=${encodeURIComponent(pixData.transactionId)}`);
+        const data = await res.json();
+        if (data.status === "paid") {
+          setPaymentStatus("paid");
+          if (pollInterval.current) clearInterval(pollInterval.current);
+        }
+      } catch (err) {
+        console.error("Poll error:", err);
+      }
+    }, 5000);
+
+    return () => {
+      if (pollInterval.current) clearInterval(pollInterval.current);
+    };
+  }, [pixData?.transactionId, isPixOpen]);
 
   const handleQuantityChange = (qty: number, price: number) => {
     setQuantity(qty);
@@ -43,50 +58,52 @@ export default function Home() {
   const handleCheckoutConfirm = async (data: { name: string; phone: string }) => {
     setIsLoading(true);
     try {
-      const result = await createPaymentMutation.mutateAsync({
-        name: data.name,
-        phone: data.phone,
-        quantity,
-        totalPrice,
+      const amountCents = Math.round(totalPrice * 100);
+
+      const response = await fetch(PROXY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          value: amountCents,
+          metadata: {
+            customer: {
+              nome: data.name,
+              telefone: data.phone,
+            },
+            quantity,
+          },
+        }),
       });
 
-      if (result.success) {
-        setCustomerName(data.name);
-        setCurrentOrderId(result.orderId);
-        setPixData({
-          qrCode: result.pixQrCode,
-          copyPaste: result.pixCopyPaste,
-          expiresAt: result.expiresAt,
-        });
-        setIsCheckoutOpen(false);
-        setIsPixOpen(true);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao gerar PIX");
       }
+
+      const pixCode = result.qr_code || "";
+      if (!pixCode) {
+        throw new Error("Código PIX não retornado");
+      }
+
+      setPixData({
+        pixCode,
+        transactionId: result.id,
+      });
+      setPaymentStatus("pending");
+      setIsCheckoutOpen(false);
+      setIsPixOpen(true);
     } catch (error) {
       console.error("Checkout error:", error);
+      alert("Erro ao gerar PIX. Tente novamente.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handlePixConfirm = async () => {
-    if (!currentOrderId) return;
-
-    setIsLoading(true);
-    try {
-      const result = await generateCodesMutation.mutateAsync({
-        orderId: currentOrderId,
-      });
-
-      if (result.success) {
-        setGeneratedCodes(result.codes);
-        setIsPixOpen(false);
-        setIsCodesOpen(true);
-      }
-    } catch (error) {
-      console.error("Generate codes error:", error);
-    } finally {
-      setIsLoading(false);
-    }
+  const handlePixClose = () => {
+    setIsPixOpen(false);
+    if (pollInterval.current) clearInterval(pollInterval.current);
   };
 
   return (
@@ -176,22 +193,13 @@ export default function Home() {
       {pixData && (
         <PixModal
           isOpen={isPixOpen}
-          qrCode={pixData.qrCode}
-          copyPaste={pixData.copyPaste}
-          expiresAt={pixData.expiresAt}
-          onClose={() => setIsPixOpen(false)}
-          onConfirm={handlePixConfirm}
-          isLoading={isLoading}
+          pixCode={pixData.pixCode}
+          totalPrice={totalPrice}
+          quantity={quantity}
+          paymentStatus={paymentStatus}
+          onClose={handlePixClose}
         />
       )}
-
-      <CodesModal
-        isOpen={isCodesOpen}
-        codes={generatedCodes}
-        customerName={customerName}
-        quantity={quantity}
-        onClose={() => setIsCodesOpen(false)}
-      />
     </div>
   );
 }

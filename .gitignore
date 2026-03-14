@@ -112,3 +112,6 @@ temp/
 # Manus artifacts
 .manus/
 .manus-logs/
+
+# Reference projects
+haburgeria - safefy/
