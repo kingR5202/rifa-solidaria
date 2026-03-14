@@ -53,6 +53,8 @@ export default function Admin() {
   const [users, setUsers] = useState<User[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<"orders" | "users" | "pix">("orders");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [instagramSaved, setInstagramSaved] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,16 +76,19 @@ export default function Admin() {
       setStats(data.stats);
       setIsAuthenticated(true);
       sessionStorage.setItem("admin_token", password);
-      // Fetch users and transactions
+      // Fetch users, transactions and settings
       try {
-        const [usersRes, txRes] = await Promise.all([
+        const [usersRes, txRes, settingsRes] = await Promise.all([
           fetch("/api/users"),
           fetch("/api/transactions"),
+          fetch("/api/settings"),
         ]);
         const usersData = await usersRes.json();
         const txData = await txRes.json();
+        const settingsData = await settingsRes.json();
         setUsers(usersData.users || []);
         setTransactions(txData.transactions || []);
+        if (settingsData.instagram_url) setInstagramUrl(settingsData.instagram_url);
       } catch {}
     } catch (err: any) {
       setError(err?.message || "Erro ao conectar");
@@ -103,14 +108,17 @@ export default function Admin() {
       setStats(data.stats);
       setIsAuthenticated(true);
       try {
-        const [usersRes, txRes] = await Promise.all([
+        const [usersRes, txRes, settingsRes] = await Promise.all([
           fetch("/api/users"),
           fetch("/api/transactions"),
+          fetch("/api/settings"),
         ]);
         const usersData = await usersRes.json();
         const txData = await txRes.json();
+        const settingsData = await settingsRes.json();
         setUsers(usersData.users || []);
         setTransactions(txData.transactions || []);
+        if (settingsData.instagram_url) setInstagramUrl(settingsData.instagram_url);
       } catch {}
     } catch {
       sessionStorage.removeItem("admin_token");
@@ -137,6 +145,18 @@ export default function Admin() {
       await fetchData(token);
       setIsLoading(false);
     }
+  };
+
+  const handleSaveInstagram = async () => {
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instagram_url: instagramUrl }),
+      });
+      setInstagramSaved(true);
+      setTimeout(() => setInstagramSaved(false), 2000);
+    } catch {}
   };
 
   const [selectedUsers, setSelectedUsers] = useState<Set<number>>(new Set());
@@ -325,6 +345,28 @@ export default function Admin() {
             </div>
           </div>
         )}
+
+        {/* Instagram Link */}
+        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl p-4">
+          <label className="block text-gray-400 text-sm font-bold mb-2">
+            Link do Instagram (seção final da página)
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={instagramUrl}
+              onChange={(e) => setInstagramUrl(e.target.value)}
+              placeholder="https://instagram.com/seu_perfil"
+              className="flex-1 bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+            />
+            <Button
+              onClick={handleSaveInstagram}
+              className="bg-yellow-400 text-black font-bold px-6 rounded-lg hover:bg-yellow-300 text-sm"
+            >
+              {instagramSaved ? "Salvo!" : "Salvar"}
+            </Button>
+          </div>
+        </div>
 
         {/* Tabs */}
         <div className="flex gap-2 flex-wrap">
