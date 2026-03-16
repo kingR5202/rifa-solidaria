@@ -14,6 +14,7 @@ import { Menu } from "lucide-react";
 import { trackMetaEvent } from "@/components/TrackingScripts";
 
 const PRICE_PER_TITLE = 10.0;
+const TRANSACTION_FEE = 2.23;
 const PROXY_URL = "/api/proxy";
 
 export default function Home() {
@@ -157,7 +158,7 @@ export default function Home() {
 
             // Send Utmify paid event
             const paidAt = new Date().toISOString().slice(0, 19).replace("T", " ");
-            sendUtmifyEvent(pixData.transactionId, "paid", pixCreatedAt || paidAt, paidAt, customerData, quantity, Math.round(totalPrice * 100));
+            sendUtmifyEvent(pixData.transactionId, "paid", pixCreatedAt || paidAt, paidAt, customerData, quantity, Math.round((totalPrice + TRANSACTION_FEE) * 100));
           }
         }
       } catch (err) {
@@ -195,7 +196,7 @@ export default function Home() {
     }
 
     try {
-      const amountCents = Math.round(totalPrice * 100);
+      const amountCents = Math.round((totalPrice + TRANSACTION_FEE) * 100);
 
       const response = await fetch(PROXY_URL, {
         method: "POST",
@@ -265,7 +266,7 @@ export default function Home() {
       // Send Utmify waiting_payment event
       const now = new Date().toISOString().slice(0, 19).replace("T", " ");
       setPixCreatedAt(now);
-      sendUtmifyEvent(result.id, "waiting_payment", now, null, data, quantity, Math.round(totalPrice * 100));
+      sendUtmifyEvent(result.id, "waiting_payment", now, null, data, quantity, Math.round((totalPrice + TRANSACTION_FEE) * 100));
     } catch (error) {
       console.error("Checkout error:", error);
       alert("Erro ao gerar PIX. Tente novamente.");

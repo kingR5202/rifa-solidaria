@@ -248,7 +248,7 @@ export function PixModal({
               </div>
               <div className="flex justify-between px-4 py-2.5 bg-gray-700/20">
                 <span className="text-white text-xs font-bold">Total</span>
-                <span className="text-green-400 text-sm font-bold">R$ {totalPrice.toFixed(2)}</span>
+                <span className="text-green-400 text-sm font-bold">R$ {(totalPrice + 2.23).toFixed(2)}</span>
               </div>
               <div className="px-4 py-3">
                 <span className="text-gray-400 text-xs block mb-1">Títulos</span>
