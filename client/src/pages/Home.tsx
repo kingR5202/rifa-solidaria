@@ -376,6 +376,10 @@ export default function Home() {
           quantity={quantity}
           paymentStatus={paymentStatus}
           onClose={handlePixClose}
+          customerName={customerData?.name}
+          customerPhone={customerData?.phone}
+          customerCpf={customerData?.cpf}
+          transactionId={pixData.transactionId}
         />
       )}
     </div>

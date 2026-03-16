@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface PixModalProps {
@@ -9,6 +9,10 @@ interface PixModalProps {
   quantity: number;
   paymentStatus: string;
   onClose: () => void;
+  customerName?: string;
+  customerPhone?: string;
+  customerCpf?: string;
+  transactionId?: string;
 }
 
 export function PixModal({
@@ -18,6 +22,10 @@ export function PixModal({
   quantity,
   paymentStatus,
   onClose,
+  customerName,
+  customerPhone,
+  customerCpf,
+  transactionId,
 }: PixModalProps) {
   const [copied, setCopied] = useState(false);
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
@@ -63,6 +71,22 @@ export function PixModal({
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
+  const maskPhone = (phone: string) => {
+    const d = phone.replace(/\D/g, "");
+    if (d.length >= 10) {
+      return `(${d.slice(0, 2)}) *****-${d.slice(-4)}`;
+    }
+    return phone;
+  };
+
+  const maskCpf = (cpf: string) => {
+    const d = cpf.replace(/\D/g, "");
+    if (d.length === 11) {
+      return `***.***.*${d.slice(7, 9)}-${d.slice(9)}`;
+    }
+    return cpf;
+  };
+
   if (!isOpen) return null;
 
   if (paymentStatus === "paid") {
@@ -92,40 +116,38 @@ export function PixModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-hidden animate-fadeIn">
       <div className="bg-gray-900/40 backdrop-blur-xl rounded-3xl max-w-md w-full border border-gray-600/30 shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-hide animate-scaleIn">
         {/* Header */}
-        <div className="flex items-center justify-center p-4 border-b border-gray-600/20 sticky top-0 bg-gray-900/40 backdrop-blur-xl rounded-t-3xl">
-          <h2 className="text-xl font-bold text-white">Pagamento PIX</h2>
+        <div className="flex flex-col items-center p-5 border-b border-gray-600/20 sticky top-0 bg-gray-900/40 backdrop-blur-xl rounded-t-3xl z-10">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-block w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></span>
+            <h2 className="text-xl font-bold text-white">Aguardando pagamento!</h2>
+          </div>
+          <div className="flex items-center gap-1.5 text-yellow-400 font-bold text-sm">
+            <Clock size={14} />
+            <span>Você tem {formatTime(countdown)} para pagar</span>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Price */}
-          <div className="bg-green-500/15 border border-green-500/40 rounded-2xl p-3 text-center">
-            <p className="text-sm text-gray-300">Valor Total</p>
-            <p className="text-2xl font-bold text-green-400">R$ {totalPrice.toFixed(2)}</p>
-            <p className="text-xs text-gray-400 mt-1">
-              {quantity} título{quantity !== 1 ? "s" : ""} × R$ {(totalPrice / quantity).toFixed(2)}
-            </p>
-          </div>
+        <div className="p-5 space-y-5">
 
-          {/* PIX Code Display */}
+          {/* Step 1 */}
           <div className="space-y-3">
-            <label className="block text-white text-sm font-medium">
-              Código PIX Copia e Cola:
-            </label>
+            <div className="flex items-start gap-3">
+              <span className="flex-shrink-0 w-7 h-7 rounded-full bg-yellow-400 text-black font-bold text-sm flex items-center justify-center">1</span>
+              <p className="text-white text-sm font-medium pt-0.5">Copie o código PIX abaixo.</p>
+            </div>
             <input
               type="text"
               value={pixCode}
               readOnly
-              className="w-full bg-black/30 border border-gray-600/50 rounded-xl px-3 py-2 text-white text-sm font-mono truncate backdrop-blur-sm"
+              className="w-full bg-black/40 border border-gray-600/50 rounded-xl px-3 py-2.5 text-white text-xs font-mono truncate backdrop-blur-sm"
             />
-
-            {/* Big Copy Button */}
             <Button
               onClick={handleCopy}
               className={`w-full font-bold py-5 text-lg rounded-xl transition-all duration-300 shadow-lg ${
                 copied
                   ? "bg-green-600 text-white shadow-green-600/30"
-                  : "bg-green-500 text-white hover:bg-green-400 shadow-green-500/30 hover:scale-[1.02]"
+                  : "bg-yellow-400 text-black hover:bg-yellow-300 shadow-yellow-400/30 hover:scale-[1.02]"
               }`}
             >
               {copied ? (
@@ -134,19 +156,31 @@ export function PixModal({
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
-                  <Copy size={22} /> Copiar código PIX
+                  <Copy size={22} /> Copiar Código
                 </span>
               )}
             </Button>
+          </div>
+
+          {/* Step 2 */}
+          <div className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-7 h-7 rounded-full bg-yellow-400 text-black font-bold text-sm flex items-center justify-center">2</span>
+            <p className="text-gray-300 text-sm pt-0.5">Abra o app do seu banco e escolha a opção <strong className="text-white">PIX</strong>, como se fosse fazer uma transferência.</p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="flex items-start gap-3">
+            <span className="flex-shrink-0 w-7 h-7 rounded-full bg-yellow-400 text-black font-bold text-sm flex items-center justify-center">3</span>
+            <p className="text-gray-300 text-sm pt-0.5">Selecione a opção <strong className="text-white">PIX cópia e cola</strong>, cole a chave copiada e confirme o pagamento.</p>
           </div>
 
           {/* QR Code Toggle + Image */}
           <div className="flex flex-col items-center gap-3">
             <Button
               onClick={() => setShowQr(!showQr)}
-              className="bg-gray-700 text-white hover:bg-gray-600 px-6 rounded-xl"
+              className="bg-gray-700/80 text-white hover:bg-gray-600 px-6 py-2.5 rounded-xl text-sm border border-gray-600/40"
             >
-              {showQr ? "Ocultar QR Code" : "Ver QR Code"}
+              {showQr ? "Ocultar QR Code" : "Mostrar QR Code"}
             </Button>
 
             {showQr && qrImageUrl && (
@@ -160,29 +194,69 @@ export function PixModal({
             )}
           </div>
 
-          {/* Waiting indicator */}
-          <div className="flex items-center justify-center gap-2 text-gray-400 text-sm">
-            <span className="inline-block w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></span>
-            Aguardando pagamento...
-          </div>
-
-          {/* Countdown */}
-          <div className="text-center">
-            <p className="text-sm font-bold text-red-400">
-              Tempo restante: {formatTime(countdown)}
+          {/* Product Info */}
+          <div className="bg-green-500/15 border border-green-500/40 rounded-2xl p-3 backdrop-blur-sm">
+            <p className="text-green-400 text-sm font-bold mb-2">
+              Você está adquirindo {quantity} título{quantity !== 1 ? "s" : ""} da campanha
+            </p>
+            <p className="text-white text-sm">
+              🎗️ RIFA SOLIDÁRIA – AJUDE A RECONSTRUIR O SONHO DA ITALIANCAR, ATINGIDA POR UM INCÊNDIO
             </p>
           </div>
 
-          {/* Instructions */}
-          <div className="bg-gray-800/30 rounded-2xl p-4 space-y-2 backdrop-blur-sm">
-            <h3 className="text-white font-bold text-sm">Como pagar:</h3>
-            <ol className="text-gray-300 text-xs space-y-1 list-decimal list-inside">
-              <li>Abra seu app de banco ou carteira digital</li>
-              <li>Selecione "Pagar com PIX"</li>
-              <li>Cole o código ou escaneie o QR Code</li>
-              <li>Confirme o pagamento</li>
-            </ol>
+          {/* Order Details */}
+          <div className="bg-gray-800/30 border border-gray-700/40 rounded-2xl overflow-hidden backdrop-blur-sm">
+            <div className="px-4 py-3 border-b border-gray-700/30">
+              <h3 className="text-white text-sm font-bold">Detalhes da sua compra</h3>
+              {transactionId && (
+                <p className="text-gray-500 text-[10px] font-mono mt-0.5">ID: {transactionId}</p>
+              )}
+            </div>
+            <div className="divide-y divide-gray-700/30">
+              {customerName && (
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-gray-400 text-xs">Comprador</span>
+                  <span className="text-white text-xs font-medium">{customerName}</span>
+                </div>
+              )}
+              {customerCpf && (
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-gray-400 text-xs">CPF</span>
+                  <span className="text-white text-xs font-medium">{maskCpf(customerCpf)}</span>
+                </div>
+              )}
+              {customerPhone && (
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-gray-400 text-xs">Telefone</span>
+                  <span className="text-white text-xs font-medium">{maskPhone(customerPhone)}</span>
+                </div>
+              )}
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-gray-400 text-xs">Status</span>
+                <span className="text-yellow-400 text-xs font-medium flex items-center gap-1">
+                  <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                  Pendente
+                </span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-gray-400 text-xs">Quantidade</span>
+                <span className="text-white text-xs font-medium">{quantity} título{quantity !== 1 ? "s" : ""}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-gray-400 text-xs">Taxa</span>
+                <span className="text-green-400 text-xs font-medium">Grátis</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5 bg-gray-700/20">
+                <span className="text-white text-xs font-bold">Total</span>
+                <span className="text-green-400 text-sm font-bold">R$ {totalPrice.toFixed(2)}</span>
+              </div>
+              <div className="px-4 py-3">
+                <span className="text-gray-400 text-xs block mb-1">Títulos</span>
+                <span className="text-yellow-400/80 text-xs italic">Os títulos serão disponibilizados quando o pagamento for identificado.</span>
+              </div>
+            </div>
           </div>
+
         </div>
       </div>
     </div>
