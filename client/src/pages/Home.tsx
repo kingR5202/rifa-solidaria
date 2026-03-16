@@ -39,6 +39,40 @@ export default function Home() {
   // Store customer data for saving order after payment
   const [customerData, setCustomerData] = useState<{ name: string; phone: string; email: string; cpf: string } | null>(null);
   const [checkoutFields, setCheckoutFields] = useState<CheckoutFieldsConfig>({ name: true, phone: true, email: false, cpf: false });
+  const [pixCreatedAt, setPixCreatedAt] = useState<string>("");
+
+  // Capture UTM params from URL on page load
+  const utmParams = useRef<Record<string, string | null>>({});
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    utmParams.current = {
+      src: params.get("src"),
+      sck: params.get("sck"),
+      utm_source: params.get("utm_source"),
+      utm_campaign: params.get("utm_campaign"),
+      utm_medium: params.get("utm_medium"),
+      utm_content: params.get("utm_content"),
+      utm_term: params.get("utm_term"),
+    };
+  }, []);
+
+  // Send order to Utmify
+  const sendUtmifyEvent = (orderId: string, status: string, createdAt: string, approvedDate: string | null, customer: { name: string; phone: string; email: string; cpf: string }, qty: number, totalCents: number) => {
+    fetch("/api/utmify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId,
+        status,
+        createdAt,
+        approvedDate,
+        customer,
+        quantity: qty,
+        totalPriceInCents: totalCents,
+        trackingParameters: utmParams.current,
+      }),
+    }).catch(() => {});
+  };
 
   // Load checkout fields config
   useEffect(() => {
@@ -120,6 +154,10 @@ export default function Home() {
             } catch (err) {
               console.error("Save order error:", err);
             }
+
+            // Send Utmify paid event
+            const paidAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+            sendUtmifyEvent(pixData.transactionId, "paid", pixCreatedAt || paidAt, paidAt, customerData, quantity, Math.round(totalPrice * 100));
           }
         }
       } catch (err) {
@@ -223,6 +261,11 @@ export default function Home() {
       } catch (err) {
         console.error("Save transaction error:", err);
       }
+
+      // Send Utmify waiting_payment event
+      const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+      setPixCreatedAt(now);
+      sendUtmifyEvent(result.id, "waiting_payment", now, null, data, quantity, Math.round(totalPrice * 100));
     } catch (error) {
       console.error("Checkout error:", error);
       alert("Erro ao gerar PIX. Tente novamente.");

@@ -244,7 +244,7 @@ export function PixModal({
               </div>
               <div className="flex justify-between px-4 py-2.5">
                 <span className="text-gray-400 text-xs">Taxa</span>
-                <span className="text-green-400 text-xs font-medium">Grátis</span>
+                <span className="text-white text-xs font-medium">R$ 2,23</span>
               </div>
               <div className="flex justify-between px-4 py-2.5 bg-gray-700/20">
                 <span className="text-white text-xs font-bold">Total</span>
