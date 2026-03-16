@@ -4,6 +4,7 @@ interface TrackingSettings {
   meta_pixel_id?: string;
   meta_access_token?: string;
   meta_events?: string[];
+  meta_domain_verification?: string;
   utmify_token?: string;
   clarity_id?: string;
 }
@@ -167,6 +168,19 @@ export default function TrackingScripts() {
     `;
     document.head.appendChild(script);
   }, [settings.clarity_id]);
+
+  // Meta Domain Verification
+  useEffect(() => {
+    if (!settings.meta_domain_verification) return;
+    const existing = document.getElementById("meta-domain-verification");
+    if (existing) return;
+
+    const meta = document.createElement("meta");
+    meta.id = "meta-domain-verification";
+    meta.name = "facebook-domain-verification";
+    meta.content = settings.meta_domain_verification;
+    document.head.appendChild(meta);
+  }, [settings.meta_domain_verification]);
 
   return null;
 }

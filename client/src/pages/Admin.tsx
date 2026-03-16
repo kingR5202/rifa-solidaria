@@ -64,6 +64,7 @@ export default function Admin() {
   const [metaPixelId, setMetaPixelId] = useState("");
   const [metaAccessToken, setMetaAccessToken] = useState("");
   const [metaTestCode, setMetaTestCode] = useState("");
+  const [metaDomainVerification, setMetaDomainVerification] = useState("");
   const [metaEvents, setMetaEvents] = useState<string[]>(["PageView"]);
   const [utmifyToken, setUtmifyToken] = useState("");
   const [clarityId, setClarityId] = useState("");
@@ -169,6 +170,7 @@ export default function Admin() {
         if (settingsData.meta_access_token) setMetaAccessToken(settingsData.meta_access_token);
         if (settingsData.meta_events) setMetaEvents(settingsData.meta_events);
         if (settingsData.meta_test_code) setMetaTestCode(settingsData.meta_test_code);
+        if (settingsData.meta_domain_verification) setMetaDomainVerification(settingsData.meta_domain_verification);
         if (settingsData.utmify_token) setUtmifyToken(settingsData.utmify_token);
         if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
         if (settingsData.checkout_fields) setCheckoutFields(settingsData.checkout_fields);
@@ -207,6 +209,7 @@ export default function Admin() {
         if (settingsData.meta_access_token) setMetaAccessToken(settingsData.meta_access_token);
         if (settingsData.meta_events) setMetaEvents(settingsData.meta_events);
         if (settingsData.meta_test_code) setMetaTestCode(settingsData.meta_test_code);
+        if (settingsData.meta_domain_verification) setMetaDomainVerification(settingsData.meta_domain_verification);
         if (settingsData.utmify_token) setUtmifyToken(settingsData.utmify_token);
         if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
         if (settingsData.checkout_fields) setCheckoutFields(settingsData.checkout_fields);
@@ -281,6 +284,7 @@ export default function Admin() {
           meta_access_token: metaAccessToken,
           meta_events: metaEvents,
           meta_test_code: metaTestCode,
+          meta_domain_verification: metaDomainVerification,
           utmify_token: utmifyToken,
           clarity_id: clarityId,
           resend_api_key: resendApiKey,
@@ -597,6 +601,13 @@ export default function Admin() {
               value={metaTestCode}
               onChange={(e) => setMetaTestCode(e.target.value)}
               placeholder="Test Event Code (opcional, ex: TEST12345)"
+              className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+            />
+            <input
+              type="text"
+              value={metaDomainVerification}
+              onChange={(e) => setMetaDomainVerification(e.target.value)}
+              placeholder="Domain Verification (ex: y4198npare3ezz3s9wa9bznm0nrtpj)"
               className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
             />
 
