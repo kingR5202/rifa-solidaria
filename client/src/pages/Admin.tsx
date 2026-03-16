@@ -145,7 +145,7 @@ export default function Admin() {
     setUtmifyTestLoading(true);
     setUtmifyTestResult(null);
     try {
-      const res = await fetch("/api/utmify", {
+      const res = await fetch("https://utmify-proxy.botecoconta84.workers.dev/api/utmify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
