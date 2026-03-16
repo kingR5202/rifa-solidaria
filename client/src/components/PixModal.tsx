@@ -107,8 +107,8 @@ export function PixModal({
             </p>
           </div>
 
-          {/* PIX Code Input + Copy */}
-          <div className="space-y-2">
+          {/* PIX Code Display */}
+          <div className="space-y-3">
             <label className="block text-white text-sm font-medium">
               Código PIX Copia e Cola:
             </label>
@@ -119,13 +119,33 @@ export function PixModal({
                 readOnly
                 className="flex-1 bg-black/30 border border-gray-600/50 rounded-xl px-3 py-2 text-white text-sm font-mono truncate backdrop-blur-sm"
               />
-              <Button
+              <button
                 onClick={handleCopy}
-                className="bg-green-500 text-black hover:bg-green-600 px-4 rounded-xl"
+                className="bg-green-500 text-black hover:bg-green-600 p-2.5 rounded-xl transition-colors"
               >
                 {copied ? <Check size={18} /> : <Copy size={18} />}
-              </Button>
+              </button>
             </div>
+
+            {/* Big Copy Button */}
+            <Button
+              onClick={handleCopy}
+              className={`w-full font-bold py-5 text-lg rounded-xl transition-all duration-300 shadow-lg ${
+                copied
+                  ? "bg-green-600 text-white shadow-green-600/30"
+                  : "bg-green-500 text-black hover:bg-green-400 shadow-green-500/30 hover:scale-[1.02]"
+              }`}
+            >
+              {copied ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Check size={22} /> Código copiado!
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <Copy size={22} /> Copiar código PIX
+                </span>
+              )}
+            </Button>
           </div>
 
           {/* QR Code Toggle + Image */}
