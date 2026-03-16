@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
-import { Lock, Users, Ticket, DollarSign, ShoppingCart, LogOut, Eye, CreditCard, Trash2, Settings } from "lucide-react";
+import { Lock, Users, Ticket, DollarSign, ShoppingCart, LogOut, Eye, CreditCard, Trash2, Settings, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+interface Toast {
+  id: number;
+  message: string;
+  type: "success" | "error";
+}
 
 interface Order {
   id: number;
@@ -64,6 +70,15 @@ export default function Admin() {
   const [trackingSaved, setTrackingSaved] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testLoading, setTestLoading] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  };
 
   const allMetaEvents = [
     { id: "PageView", label: "PageView", desc: "Visualização de página" },
@@ -222,7 +237,10 @@ export default function Admin() {
       });
       setInstagramSaved(true);
       setTimeout(() => setInstagramSaved(false), 2000);
-    } catch {}
+      showToast("Link do Instagram salvo com sucesso!");
+    } catch {
+      showToast("Erro ao salvar Instagram", "error");
+    }
   };
 
   const handleSaveTracking = async () => {
@@ -241,7 +259,10 @@ export default function Admin() {
       });
       setTrackingSaved(true);
       setTimeout(() => setTrackingSaved(false), 2000);
-    } catch {}
+      showToast("Configurações de rastreamento salvas!");
+    } catch {
+      showToast("Erro ao salvar rastreamento", "error");
+    }
   };
 
   const [selectedUsers, setSelectedUsers] = useState<Set<number>>(new Set());
@@ -359,6 +380,24 @@ export default function Admin() {
   // Admin dashboard
   return (
     <div className="min-h-screen bg-black text-white">
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-xl text-sm font-medium animate-scaleIn ${
+              toast.type === "success"
+                ? "bg-green-500/20 border-green-500/40 text-green-400"
+                : "bg-red-500/20 border-red-500/40 text-red-400"
+            }`}
+            style={{ animation: "scaleIn 0.3s ease-out" }}
+          >
+            {toast.type === "success" ? <CheckCircle size={16} /> : <XCircle size={16} />}
+            {toast.message}
+          </div>
+        ))}
+      </div>
+
       {/* Header */}
       <header className="bg-black border-b border-yellow-400/30 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
