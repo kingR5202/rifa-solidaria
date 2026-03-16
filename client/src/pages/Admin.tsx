@@ -57,9 +57,58 @@ export default function Admin() {
   const [instagramSaved, setInstagramSaved] = useState(false);
   const [metaPixelId, setMetaPixelId] = useState("");
   const [metaAccessToken, setMetaAccessToken] = useState("");
+  const [metaTestCode, setMetaTestCode] = useState("");
+  const [metaEvents, setMetaEvents] = useState<string[]>(["PageView"]);
   const [utmifyToken, setUtmifyToken] = useState("");
   const [clarityId, setClarityId] = useState("");
   const [trackingSaved, setTrackingSaved] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
+
+  const allMetaEvents = [
+    { id: "PageView", label: "PageView", desc: "Visualização de página" },
+    { id: "ViewContent", label: "ViewContent", desc: "Visualizou conteúdo/produto" },
+    { id: "InitiateCheckout", label: "InitiateCheckout", desc: "Iniciou o checkout" },
+    { id: "Purchase", label: "Purchase", desc: "Compra concluída" },
+  ];
+
+  const toggleMetaEvent = (eventId: string) => {
+    setMetaEvents((prev) =>
+      prev.includes(eventId) ? prev.filter((e) => e !== eventId) : [...prev, eventId]
+    );
+  };
+
+  const handleTestEvent = async () => {
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/meta-capi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_name: "Purchase",
+          test: true,
+          custom_data: {
+            currency: "BRL",
+            value: 1.00,
+            content_name: "Teste Admin",
+            content_category: "infoproduto",
+          },
+        }),
+      });
+      const data = await res.json();
+      setTestResult({
+        success: res.ok,
+        message: res.ok
+          ? `Evento enviado! (${JSON.stringify(data.fb_response || data)})`
+          : `Erro: ${data.error || "Falha ao enviar"}`,
+      });
+    } catch (err: any) {
+      setTestResult({ success: false, message: err.message || "Erro de rede" });
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +145,8 @@ export default function Admin() {
         if (settingsData.instagram_url) setInstagramUrl(settingsData.instagram_url);
         if (settingsData.meta_pixel_id) setMetaPixelId(settingsData.meta_pixel_id);
         if (settingsData.meta_access_token) setMetaAccessToken(settingsData.meta_access_token);
+        if (settingsData.meta_events) setMetaEvents(settingsData.meta_events);
+        if (settingsData.meta_test_code) setMetaTestCode(settingsData.meta_test_code);
         if (settingsData.utmify_token) setUtmifyToken(settingsData.utmify_token);
         if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
       } catch {}
@@ -130,6 +181,8 @@ export default function Admin() {
         if (settingsData.instagram_url) setInstagramUrl(settingsData.instagram_url);
         if (settingsData.meta_pixel_id) setMetaPixelId(settingsData.meta_pixel_id);
         if (settingsData.meta_access_token) setMetaAccessToken(settingsData.meta_access_token);
+        if (settingsData.meta_events) setMetaEvents(settingsData.meta_events);
+        if (settingsData.meta_test_code) setMetaTestCode(settingsData.meta_test_code);
         if (settingsData.utmify_token) setUtmifyToken(settingsData.utmify_token);
         if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
       } catch {}
@@ -180,6 +233,8 @@ export default function Admin() {
         body: JSON.stringify({
           meta_pixel_id: metaPixelId,
           meta_access_token: metaAccessToken,
+          meta_events: metaEvents,
+          meta_test_code: metaTestCode,
           utmify_token: utmifyToken,
           clarity_id: clarityId,
         }),
@@ -406,8 +461,8 @@ export default function Admin() {
           </div>
 
           {/* Meta CAPI */}
-          <div className="space-y-2">
-            <label className="block text-gray-400 text-sm font-bold">Meta CAPI (Facebook Pixel)</label>
+          <div className="space-y-3">
+            <label className="block text-gray-400 text-sm font-bold">Meta CAPI (Facebook Pixel + Conversions API)</label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <input
                 type="text"
@@ -424,6 +479,59 @@ export default function Admin() {
                 className="bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
               />
             </div>
+            <input
+              type="text"
+              value={metaTestCode}
+              onChange={(e) => setMetaTestCode(e.target.value)}
+              placeholder="Test Event Code (opcional, ex: TEST12345)"
+              className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+            />
+
+            {/* Event checkboxes */}
+            <div>
+              <p className="text-gray-500 text-xs mb-2">Eventos para disparar (Pixel + CAPI):</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {allMetaEvents.map((evt) => (
+                  <label
+                    key={evt.id}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors text-sm ${
+                      metaEvents.includes(evt.id)
+                        ? "border-yellow-400/60 bg-yellow-400/10 text-yellow-400"
+                        : "border-gray-600/30 bg-black/20 text-gray-400 hover:border-gray-500/50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={metaEvents.includes(evt.id)}
+                      onChange={() => toggleMetaEvent(evt.id)}
+                      className="accent-yellow-400"
+                    />
+                    <div>
+                      <span className="font-mono text-xs">{evt.label}</span>
+                      <p className="text-[10px] text-gray-500">{evt.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Test Event Button */}
+            {metaPixelId && metaAccessToken && (
+              <div className="flex items-center gap-3 pt-1">
+                <Button
+                  onClick={handleTestEvent}
+                  disabled={testLoading}
+                  className="bg-blue-500/80 text-white font-bold px-4 py-2 rounded-lg hover:bg-blue-500 text-xs disabled:opacity-50"
+                >
+                  {testLoading ? "Enviando..." : "Testar Evento (Purchase)"}
+                </Button>
+                {testResult && (
+                  <span className={`text-xs ${testResult.success ? "text-green-400" : "text-red-400"}`}>
+                    {testResult.message}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Utmify */}

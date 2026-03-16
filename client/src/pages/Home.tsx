@@ -11,6 +11,7 @@ import { MeusTitulos } from "@/components/MeusTitulos";
 import { Button } from "@/components/ui/button";
 import { IMAGE_URLS } from "@shared/imageUrls";
 import { Menu } from "lucide-react";
+import { trackMetaEvent } from "@/components/TrackingScripts";
 
 const PRICE_PER_TITLE = 10.0;
 const PROXY_URL = "/api/proxy";
@@ -49,6 +50,24 @@ export default function Home() {
         if (data.status === "paid") {
           setPaymentStatus("paid");
           if (pollInterval.current) clearInterval(pollInterval.current);
+
+          // Track Purchase event (Pixel + CAPI)
+          if (customerData) {
+            trackMetaEvent("Purchase", {
+              currency: "BRL",
+              value: totalPrice,
+              content_name: "Rifa Solidária ItalianCar",
+              content_category: "infoproduto",
+              content_type: "product",
+              num_items: quantity,
+              order_id: pixData.transactionId,
+            }, {
+              fn: customerData.name.split(" ")[0],
+              ln: customerData.name.split(" ").slice(1).join(" "),
+              ph: customerData.phone.replace(/\D/g, ""),
+              external_id: customerData.phone.replace(/\D/g, ""),
+            });
+          }
 
           // Save order and update transaction status
           if (customerData) {
@@ -148,6 +167,19 @@ export default function Home() {
       setPaymentStatus("pending");
       setIsCheckoutOpen(false);
       setIsPixOpen(true);
+
+      // Track InitiateCheckout event (Pixel + CAPI)
+      trackMetaEvent("InitiateCheckout", {
+        currency: "BRL",
+        value: totalPrice,
+        content_name: "Rifa Solidária ItalianCar",
+        content_category: "infoproduto",
+        num_items: quantity,
+      }, {
+        fn: data.name.split(" ")[0],
+        ln: data.name.split(" ").slice(1).join(" "),
+        ph: data.phone.replace(/\D/g, ""),
+      });
 
       // Save PIX transaction to database
       try {
