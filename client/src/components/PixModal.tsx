@@ -147,7 +147,7 @@ export function PixModal({
               className={`w-full font-bold py-5 text-lg rounded-xl transition-all duration-300 shadow-lg ${
                 copied
                   ? "bg-green-600 text-white shadow-green-600/30"
-                  : "bg-yellow-400 text-black hover:bg-yellow-300 shadow-yellow-400/30 hover:scale-[1.02]"
+                  : "bg-green-500 text-white hover:bg-green-400 shadow-green-500/30 hover:scale-[1.02]"
               }`}
             >
               {copied ? (
