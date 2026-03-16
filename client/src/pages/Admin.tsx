@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Lock, Users, Ticket, DollarSign, ShoppingCart, LogOut, Eye, CreditCard, Trash2, Settings, CheckCircle, XCircle, ClipboardList } from "lucide-react";
+import { Lock, Users, Ticket, DollarSign, ShoppingCart, LogOut, Eye, CreditCard, Trash2, Settings, CheckCircle, XCircle, ClipboardList, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Toast {
@@ -69,12 +69,13 @@ export default function Admin() {
   const [utmifyToken, setUtmifyToken] = useState("");
   const [clarityId, setClarityId] = useState("");
   const [trackingSaved, setTrackingSaved] = useState(false);
-  const [checkoutFields, setCheckoutFields] = useState<Record<string, boolean>>({
-    name: true,
-    phone: true,
-    email: false,
-    cpf: false,
-  });
+  const [checkoutFields, setCheckoutFields] = useState<{ id: string; label: string; desc: string; enabled: boolean }[]>([
+    { id: "name", label: "Nome", desc: "Nome completo", enabled: true },
+    { id: "phone", label: "Telefone", desc: "Número com DDD", enabled: true },
+    { id: "email", label: "E-mail", desc: "Endereço de e-mail", enabled: false },
+    { id: "cpf", label: "CPF", desc: "Documento CPF", enabled: false },
+  ]);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [resendApiKey, setResendApiKey] = useState("");
   const [checkifyApiKey, setCheckifyApiKey] = useState("");
   const [cpfQuery, setCpfQuery] = useState("");
@@ -178,7 +179,21 @@ export default function Admin() {
         if (settingsData.meta_domain_verification) setMetaDomainVerification(settingsData.meta_domain_verification);
         if (settingsData.utmify_token) setUtmifyToken(settingsData.utmify_token);
         if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
-        if (settingsData.checkout_fields) setCheckoutFields(settingsData.checkout_fields);
+        if (settingsData.checkout_fields) {
+          const saved = settingsData.checkout_fields;
+          if (Array.isArray(saved)) {
+            setCheckoutFields(saved);
+          } else {
+            // Migrate old format {name: true, phone: true} to new array format
+            const defaults = [
+              { id: "name", label: "Nome", desc: "Nome completo" },
+              { id: "phone", label: "Telefone", desc: "Número com DDD" },
+              { id: "email", label: "E-mail", desc: "Endereço de e-mail" },
+              { id: "cpf", label: "CPF", desc: "Documento CPF" },
+            ];
+            setCheckoutFields(defaults.map((d) => ({ ...d, enabled: !!saved[d.id] })));
+          }
+        }
         if (settingsData.resend_api_key) setResendApiKey(settingsData.resend_api_key);
         if (settingsData.checkify_api_key) setCheckifyApiKey(settingsData.checkify_api_key);
       } catch {}
@@ -218,7 +233,21 @@ export default function Admin() {
         if (settingsData.meta_domain_verification) setMetaDomainVerification(settingsData.meta_domain_verification);
         if (settingsData.utmify_token) setUtmifyToken(settingsData.utmify_token);
         if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
-        if (settingsData.checkout_fields) setCheckoutFields(settingsData.checkout_fields);
+        if (settingsData.checkout_fields) {
+          const saved = settingsData.checkout_fields;
+          if (Array.isArray(saved)) {
+            setCheckoutFields(saved);
+          } else {
+            // Migrate old format {name: true, phone: true} to new array format
+            const defaults = [
+              { id: "name", label: "Nome", desc: "Nome completo" },
+              { id: "phone", label: "Telefone", desc: "Número com DDD" },
+              { id: "email", label: "E-mail", desc: "Endereço de e-mail" },
+              { id: "cpf", label: "CPF", desc: "Documento CPF" },
+            ];
+            setCheckoutFields(defaults.map((d) => ({ ...d, enabled: !!saved[d.id] })));
+          }
+        }
         if (settingsData.resend_api_key) setResendApiKey(settingsData.resend_api_key);
         if (settingsData.checkify_api_key) setCheckifyApiKey(settingsData.checkify_api_key);
       } catch {}
@@ -295,7 +324,29 @@ export default function Admin() {
   };
 
   const toggleCheckoutField = (field: string) => {
-    setCheckoutFields((prev) => ({ ...prev, [field]: !prev[field] }));
+    setCheckoutFields((prev) =>
+      prev.map((f) => (f.id === field ? { ...f, enabled: !f.enabled } : f))
+    );
+  };
+
+  const handleDragStart = (index: number) => {
+    setDragIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === index) return;
+    setCheckoutFields((prev) => {
+      const items = [...prev];
+      const [dragged] = items.splice(dragIndex, 1);
+      items.splice(index, 0, dragged);
+      return items;
+    });
+    setDragIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDragIndex(null);
   };
 
   const handleSaveInstagram = async () => {
@@ -571,34 +622,37 @@ export default function Admin() {
             <ClipboardList size={18} className="text-yellow-400" />
             <h3 className="text-white font-bold">Campos do Checkout</h3>
           </div>
-          <p className="text-gray-500 text-xs">Selecione quais campos o cliente precisa preencher antes de gerar o PIX:</p>
+          <p className="text-gray-500 text-xs">Arraste para reordenar a prioridade dos campos no checkout:</p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {[
-              { id: "name", label: "Nome", desc: "Nome completo" },
-              { id: "phone", label: "Telefone", desc: "Número com DDD" },
-              { id: "email", label: "E-mail", desc: "Endereço de e-mail" },
-              { id: "cpf", label: "CPF", desc: "Documento CPF" },
-            ].map((field) => (
-              <label
+          <div className="flex flex-col gap-2">
+            {checkoutFields.map((field, index) => (
+              <div
                 key={field.id}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors text-sm ${
-                  checkoutFields[field.id]
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`flex items-center gap-3 px-3 py-3 rounded-lg border transition-all text-sm select-none ${
+                  dragIndex === index
+                    ? "border-yellow-400 bg-yellow-400/20 scale-[1.02] shadow-lg shadow-yellow-400/10"
+                    : field.enabled
                     ? "border-yellow-400/60 bg-yellow-400/10 text-yellow-400"
                     : "border-gray-600/30 bg-black/20 text-gray-400 hover:border-gray-500/50"
                 }`}
               >
+                <GripVertical size={16} className="text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0" />
+                <span className="text-gray-500 text-xs font-mono w-5">{index + 1}.</span>
                 <input
                   type="checkbox"
-                  checked={checkoutFields[field.id] || false}
+                  checked={field.enabled}
                   onChange={() => toggleCheckoutField(field.id)}
-                  className="accent-yellow-400"
+                  className="accent-yellow-400 flex-shrink-0"
                 />
-                <div>
+                <div className="flex-1">
                   <span className="font-bold text-xs">{field.label}</span>
                   <p className="text-[10px] text-gray-500">{field.desc}</p>
                 </div>
-              </label>
+              </div>
             ))}
           </div>
 
