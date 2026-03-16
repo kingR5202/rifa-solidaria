@@ -112,20 +112,12 @@ export function PixModal({
             <label className="block text-white text-sm font-medium">
               Código PIX Copia e Cola:
             </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={pixCode}
-                readOnly
-                className="flex-1 bg-black/30 border border-gray-600/50 rounded-xl px-3 py-2 text-white text-sm font-mono truncate backdrop-blur-sm"
-              />
-              <button
-                onClick={handleCopy}
-                className="bg-green-500 text-black hover:bg-green-600 p-2.5 rounded-xl transition-colors"
-              >
-                {copied ? <Check size={18} /> : <Copy size={18} />}
-              </button>
-            </div>
+            <input
+              type="text"
+              value={pixCode}
+              readOnly
+              className="w-full bg-black/30 border border-gray-600/50 rounded-xl px-3 py-2 text-white text-sm font-mono truncate backdrop-blur-sm"
+            />
 
             {/* Big Copy Button */}
             <Button
