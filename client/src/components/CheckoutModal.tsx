@@ -162,7 +162,7 @@ export function CheckoutModal({
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-green-500 text-black hover:bg-green-600 font-bold py-5 text-xl md:text-2xl transition-all duration-300 hover:scale-105 rounded-xl shadow-lg shadow-green-500/30 animate-glow"
+                className="w-full bg-green-500 text-white hover:bg-green-600 font-bold py-5 text-xl md:text-2xl transition-all duration-300 hover:scale-105 rounded-xl shadow-lg shadow-green-500/30 animate-glow"
               >
                 {isLoading ? "Processando..." : "Continuar para PIX"}
               </Button>
