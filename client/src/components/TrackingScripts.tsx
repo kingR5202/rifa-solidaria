@@ -147,7 +147,10 @@ export default function TrackingScripts() {
     const script = document.createElement("script");
     script.id = "utmify-script";
     script.async = true;
-    script.src = `https://cdn.utmify.com.br/scripts/utms/${settings.utmify_token}.js`;
+    script.defer = true;
+    script.src = "https://cdn.utmify.com.br/scripts/utms/latest.js";
+    script.setAttribute("data-utmify-prevent-xcod-sck", "");
+    script.setAttribute("data-utmify-prevent-subids", "");
     document.head.appendChild(script);
   }, [settings.utmify_token]);
 
