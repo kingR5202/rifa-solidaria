@@ -76,6 +76,11 @@ export default function Admin() {
     cpf: false,
   });
   const [resendApiKey, setResendApiKey] = useState("");
+  const [checkifyApiKey, setCheckifyApiKey] = useState("");
+  const [cpfQuery, setCpfQuery] = useState("");
+  const [cpfResult, setCpfResult] = useState<any>(null);
+  const [cpfLoading, setCpfLoading] = useState(false);
+  const [cpfError, setCpfError] = useState("");
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testLoading, setTestLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -175,6 +180,7 @@ export default function Admin() {
         if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
         if (settingsData.checkout_fields) setCheckoutFields(settingsData.checkout_fields);
         if (settingsData.resend_api_key) setResendApiKey(settingsData.resend_api_key);
+        if (settingsData.checkify_api_key) setCheckifyApiKey(settingsData.checkify_api_key);
       } catch {}
     } catch (err: any) {
       setError(err?.message || "Erro ao conectar");
@@ -214,6 +220,7 @@ export default function Admin() {
         if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
         if (settingsData.checkout_fields) setCheckoutFields(settingsData.checkout_fields);
         if (settingsData.resend_api_key) setResendApiKey(settingsData.resend_api_key);
+        if (settingsData.checkify_api_key) setCheckifyApiKey(settingsData.checkify_api_key);
       } catch {}
     } catch {
       sessionStorage.removeItem("admin_token");
@@ -240,6 +247,38 @@ export default function Admin() {
       await fetchData(token);
       setIsLoading(false);
     }
+  };
+
+  const handleCpfLookup = async () => {
+    const clean = cpfQuery.replace(/\D/g, "");
+    if (clean.length !== 11) {
+      setCpfError("CPF deve ter 11 dígitos");
+      return;
+    }
+    setCpfLoading(true);
+    setCpfError("");
+    setCpfResult(null);
+    try {
+      const res = await fetch(`/api/checkify?cpf=${clean}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setCpfError(data.error || "Erro na consulta");
+      } else {
+        setCpfResult(data);
+      }
+    } catch {
+      setCpfError("Erro de rede");
+    } finally {
+      setCpfLoading(false);
+    }
+  };
+
+  const formatCpfInput = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
   };
 
   const handleSaveCheckoutFields = async () => {
@@ -288,6 +327,7 @@ export default function Admin() {
           utmify_token: utmifyToken,
           clarity_id: clarityId,
           resend_api_key: resendApiKey,
+          checkify_api_key: checkifyApiKey,
         }),
       });
       setTrackingSaved(true);
@@ -682,6 +722,19 @@ export default function Admin() {
             />
           </div>
 
+          {/* Checkify (CPF Lookup) */}
+          <div className="space-y-2">
+            <label className="block text-gray-400 text-sm font-bold">Checkify (Consulta CPF)</label>
+            <input
+              type="text"
+              value={checkifyApiKey}
+              onChange={(e) => setCheckifyApiKey(e.target.value)}
+              placeholder="API Key Checkify (ex: chk_live_xxxxxxxx)"
+              className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+            />
+            <p className="text-gray-500 text-xs">Permite consultar dados do CPF no checkout e no painel admin.</p>
+          </div>
+
           {/* Resend (Email) */}
           <div className="space-y-2">
             <label className="block text-gray-400 text-sm font-bold">Resend (Envio de E-mail)</label>
@@ -702,6 +755,124 @@ export default function Admin() {
             {trackingSaved ? "Salvo!" : "Salvar Rastreamento"}
           </Button>
         </div>
+
+        {/* CPF Lookup */}
+        {checkifyApiKey && (
+        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl p-4 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Users size={18} className="text-yellow-400" />
+            <h3 className="text-white font-bold">Consulta CPF</h3>
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={cpfQuery}
+              onChange={(e) => setCpfQuery(formatCpfInput(e.target.value))}
+              placeholder="000.000.000-00"
+              className="flex-1 bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm font-mono"
+              onKeyDown={(e) => e.key === "Enter" && handleCpfLookup()}
+            />
+            <Button
+              onClick={handleCpfLookup}
+              disabled={cpfLoading}
+              className="bg-yellow-400 text-black font-bold px-6 rounded-lg hover:bg-yellow-300 text-sm disabled:opacity-50"
+            >
+              {cpfLoading ? "..." : "Consultar"}
+            </Button>
+          </div>
+
+          {cpfError && (
+            <p className="text-red-400 text-sm">{cpfError}</p>
+          )}
+
+          {cpfResult?.resultado && (
+            <div className="space-y-3">
+              {/* Dados Pessoais */}
+              <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3 space-y-1">
+                <p className="text-yellow-400 text-xs font-bold mb-2">Dados Pessoais</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <span className="text-gray-400">Nome:</span>
+                  <span className="text-white font-medium">{cpfResult.resultado.dados?.NOME || "-"}</span>
+                  <span className="text-gray-400">CPF:</span>
+                  <span className="text-white font-mono">{cpfResult.resultado.dados?.CPF || "-"}</span>
+                  <span className="text-gray-400">Nascimento:</span>
+                  <span className="text-white">{cpfResult.resultado.dados?.NASCIMENTO || "-"}</span>
+                  <span className="text-gray-400">Sexo:</span>
+                  <span className="text-white">{cpfResult.resultado.dados?.SEXO === "M" ? "Masculino" : cpfResult.resultado.dados?.SEXO === "F" ? "Feminino" : "-"}</span>
+                  <span className="text-gray-400">Mãe:</span>
+                  <span className="text-white">{cpfResult.resultado.dados?.NOME_MAE || "-"}</span>
+                  <span className="text-gray-400">Situação:</span>
+                  <span className={`font-bold ${cpfResult.resultado.dados?.SITUACAO_CPF === "Regular" ? "text-green-400" : "text-red-400"}`}>
+                    {cpfResult.resultado.dados?.SITUACAO_CPF || "-"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Score & Poder Aquisitivo */}
+              {(cpfResult.resultado.score || cpfResult.resultado.poder_aquisitivo) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {cpfResult.resultado.score && (
+                    <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
+                      <p className="text-yellow-400 text-xs font-bold mb-1">Score</p>
+                      <p className="text-2xl font-bold text-white">{cpfResult.resultado.score.SCORE}</p>
+                      <p className="text-gray-400 text-xs">{cpfResult.resultado.score.FAIXA}</p>
+                    </div>
+                  )}
+                  {cpfResult.resultado.poder_aquisitivo && (
+                    <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
+                      <p className="text-yellow-400 text-xs font-bold mb-1">Poder Aquisitivo</p>
+                      <p className="text-lg font-bold text-white">{cpfResult.resultado.poder_aquisitivo.FAIXA}</p>
+                      <p className="text-gray-400 text-xs">{cpfResult.resultado.poder_aquisitivo.RENDA_ESTIMADA}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Telefones */}
+              {cpfResult.resultado.telefones?.length > 0 && (
+                <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
+                  <p className="text-yellow-400 text-xs font-bold mb-2">Telefones</p>
+                  <div className="flex flex-wrap gap-2">
+                    {cpfResult.resultado.telefones.map((tel: any, i: number) => (
+                      <span key={i} className="bg-gray-700/50 text-white px-2 py-1 rounded text-xs font-mono">
+                        {tel.TELEFONE || tel.numero || JSON.stringify(tel)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Endereços */}
+              {cpfResult.resultado.enderecos?.length > 0 && (
+                <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
+                  <p className="text-yellow-400 text-xs font-bold mb-2">Endereços</p>
+                  {cpfResult.resultado.enderecos.map((end: any, i: number) => (
+                    <p key={i} className="text-white text-xs mb-1">
+                      {end.LOGRADOURO || end.endereco || ""} {end.NUMERO || ""} {end.BAIRRO ? `- ${end.BAIRRO}` : ""} {end.CIDADE ? `- ${end.CIDADE}/${end.UF}` : ""}
+                      {end.CEP ? ` (${end.CEP})` : ""}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Emails */}
+              {cpfResult.resultado.emails?.length > 0 && (
+                <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
+                  <p className="text-yellow-400 text-xs font-bold mb-2">E-mails</p>
+                  <div className="flex flex-wrap gap-2">
+                    {cpfResult.resultado.emails.map((em: any, i: number) => (
+                      <span key={i} className="bg-gray-700/50 text-white px-2 py-1 rounded text-xs">
+                        {em.EMAIL || em.email || JSON.stringify(em)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-2 flex-wrap">
