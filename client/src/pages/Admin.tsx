@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Lock, Users, Ticket, DollarSign, ShoppingCart, LogOut, Eye, CreditCard, Trash2, Settings, CheckCircle, XCircle } from "lucide-react";
+import { Lock, Users, Ticket, DollarSign, ShoppingCart, LogOut, Eye, CreditCard, Trash2, Settings, CheckCircle, XCircle, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Toast {
@@ -68,6 +68,13 @@ export default function Admin() {
   const [utmifyToken, setUtmifyToken] = useState("");
   const [clarityId, setClarityId] = useState("");
   const [trackingSaved, setTrackingSaved] = useState(false);
+  const [checkoutFields, setCheckoutFields] = useState<Record<string, boolean>>({
+    name: true,
+    phone: true,
+    email: false,
+    cpf: false,
+  });
+  const [resendApiKey, setResendApiKey] = useState("");
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testLoading, setTestLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -164,6 +171,8 @@ export default function Admin() {
         if (settingsData.meta_test_code) setMetaTestCode(settingsData.meta_test_code);
         if (settingsData.utmify_token) setUtmifyToken(settingsData.utmify_token);
         if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
+        if (settingsData.checkout_fields) setCheckoutFields(settingsData.checkout_fields);
+        if (settingsData.resend_api_key) setResendApiKey(settingsData.resend_api_key);
       } catch {}
     } catch (err: any) {
       setError(err?.message || "Erro ao conectar");
@@ -200,6 +209,8 @@ export default function Admin() {
         if (settingsData.meta_test_code) setMetaTestCode(settingsData.meta_test_code);
         if (settingsData.utmify_token) setUtmifyToken(settingsData.utmify_token);
         if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
+        if (settingsData.checkout_fields) setCheckoutFields(settingsData.checkout_fields);
+        if (settingsData.resend_api_key) setResendApiKey(settingsData.resend_api_key);
       } catch {}
     } catch {
       sessionStorage.removeItem("admin_token");
@@ -226,6 +237,23 @@ export default function Admin() {
       await fetchData(token);
       setIsLoading(false);
     }
+  };
+
+  const handleSaveCheckoutFields = async () => {
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkout_fields: checkoutFields }),
+      });
+      showToast("Campos do checkout salvos com sucesso!");
+    } catch {
+      showToast("Erro ao salvar campos do checkout", "error");
+    }
+  };
+
+  const toggleCheckoutField = (field: string) => {
+    setCheckoutFields((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
   const handleSaveInstagram = async () => {
@@ -255,6 +283,7 @@ export default function Admin() {
           meta_test_code: metaTestCode,
           utmify_token: utmifyToken,
           clarity_id: clarityId,
+          resend_api_key: resendApiKey,
         }),
       });
       setTrackingSaved(true);
@@ -492,6 +521,51 @@ export default function Admin() {
           </div>
         </div>
 
+        {/* Checkout Fields Config */}
+        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl p-4 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <ClipboardList size={18} className="text-yellow-400" />
+            <h3 className="text-white font-bold">Campos do Checkout</h3>
+          </div>
+          <p className="text-gray-500 text-xs">Selecione quais campos o cliente precisa preencher antes de gerar o PIX:</p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {[
+              { id: "name", label: "Nome", desc: "Nome completo" },
+              { id: "phone", label: "Telefone", desc: "Número com DDD" },
+              { id: "email", label: "E-mail", desc: "Endereço de e-mail" },
+              { id: "cpf", label: "CPF", desc: "Documento CPF" },
+            ].map((field) => (
+              <label
+                key={field.id}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors text-sm ${
+                  checkoutFields[field.id]
+                    ? "border-yellow-400/60 bg-yellow-400/10 text-yellow-400"
+                    : "border-gray-600/30 bg-black/20 text-gray-400 hover:border-gray-500/50"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checkoutFields[field.id] || false}
+                  onChange={() => toggleCheckoutField(field.id)}
+                  className="accent-yellow-400"
+                />
+                <div>
+                  <span className="font-bold text-xs">{field.label}</span>
+                  <p className="text-[10px] text-gray-500">{field.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+
+          <Button
+            onClick={handleSaveCheckoutFields}
+            className="bg-yellow-400 text-black font-bold px-6 py-2.5 rounded-lg hover:bg-yellow-300 text-sm"
+          >
+            Salvar Campos
+          </Button>
+        </div>
+
         {/* Tracking Settings */}
         <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl p-4 space-y-4">
           <div className="flex items-center gap-2 mb-2">
@@ -595,6 +669,19 @@ export default function Admin() {
               placeholder="ID do Projeto (ex: vwfmrsgeqj)"
               className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
             />
+          </div>
+
+          {/* Resend (Email) */}
+          <div className="space-y-2">
+            <label className="block text-gray-400 text-sm font-bold">Resend (Envio de E-mail)</label>
+            <input
+              type="text"
+              value={resendApiKey}
+              onChange={(e) => setResendApiKey(e.target.value)}
+              placeholder="API Key Resend (ex: re_xxxxxxxx)"
+              className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+            />
+            <p className="text-gray-500 text-xs">Quando preenchido, um e-mail de confirmação será enviado ao comprador após o pagamento.</p>
           </div>
 
           <Button

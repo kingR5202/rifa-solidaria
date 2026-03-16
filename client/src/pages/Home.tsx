@@ -3,7 +3,7 @@ import { Carousel } from "@/components/Carousel";
 import { QuantitySelector } from "@/components/QuantitySelector";
 import { DescriptionAccordion } from "@/components/DescriptionAccordion";
 import { InstagramSection } from "@/components/InstagramSection";
-import { CheckoutModal } from "@/components/CheckoutModal";
+import { CheckoutModal, type CheckoutFieldsConfig } from "@/components/CheckoutModal";
 import { PixModal } from "@/components/PixModal";
 import { MenuDrawer } from "@/components/MenuDrawer";
 import { LoginModal } from "@/components/LoginModal";
@@ -37,7 +37,18 @@ export default function Home() {
   const [isLoginLoading, setIsLoginLoading] = useState(false);
 
   // Store customer data for saving order after payment
-  const [customerData, setCustomerData] = useState<{ name: string; phone: string } | null>(null);
+  const [customerData, setCustomerData] = useState<{ name: string; phone: string; email: string; cpf: string } | null>(null);
+  const [checkoutFields, setCheckoutFields] = useState<CheckoutFieldsConfig>({ name: true, phone: true, email: false, cpf: false });
+
+  // Load checkout fields config
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.checkout_fields) setCheckoutFields(data.checkout_fields);
+      })
+      .catch(() => {});
+  }, []);
 
   // Poll payment status
   useEffect(() => {
@@ -92,6 +103,20 @@ export default function Home() {
                   status: "paid",
                 }),
               });
+              // Send confirmation email if customer provided email
+              if (customerData.email) {
+                fetch("/api/send-email", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    to: customerData.email,
+                    customerName: customerData.name,
+                    quantity,
+                    totalPrice,
+                    transactionId: pixData.transactionId,
+                  }),
+                }).catch(() => {});
+              }
             } catch (err) {
               console.error("Save order error:", err);
             }
@@ -116,7 +141,7 @@ export default function Home() {
     setIsCheckoutOpen(true);
   };
 
-  const handleCheckoutConfirm = async (data: { name: string; phone: string }) => {
+  const handleCheckoutConfirm = async (data: { name: string; phone: string; email: string; cpf: string }) => {
     setIsLoading(true);
     setCustomerData(data);
 
@@ -339,6 +364,7 @@ export default function Home() {
         onClose={() => setIsCheckoutOpen(false)}
         onConfirm={handleCheckoutConfirm}
         isLoading={isLoading}
+        fieldsConfig={checkoutFields}
       />
 
       {/* PIX Modal */}
