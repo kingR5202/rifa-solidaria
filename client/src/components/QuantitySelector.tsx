@@ -73,10 +73,10 @@ export function QuantitySelector({ onQuantityChange }: QuantitySelectorProps) {
       {/* Price Display */}
       <div className="text-right">
         <div className="text-green-500 font-bold text-lg">
-          R$ {totalPrice.toFixed(2)}
+          R$ {totalPrice.toFixed(2).replace(".", ",")}
         </div>
         <div className="text-white text-xs">
-          {quantity} título{quantity !== 1 ? "s" : ""} × R$ {PRICE_PER_TITLE.toFixed(2)}
+          {quantity} título{quantity !== 1 ? "s" : ""} × R$ {PRICE_PER_TITLE.toFixed(2).replace(".", ",")}
         </div>
       </div>
     </div>

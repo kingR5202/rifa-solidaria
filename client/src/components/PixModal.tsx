@@ -99,7 +99,7 @@ export function PixModal({
             Obrigado por ajudar a reconstruir a ItalianCar!
           </p>
           <p className="text-white font-bold mb-6">
-            {quantity} título{quantity !== 1 ? "s" : ""} - R$ {totalPrice.toFixed(2)}
+            {quantity} título{quantity !== 1 ? "s" : ""} - R$ {totalPrice.toFixed(2).replace(".", ",")}
           </p>
           <Button
             onClick={onClose}
@@ -248,7 +248,7 @@ export function PixModal({
               </div>
               <div className="flex justify-between px-4 py-2.5 bg-gray-700/20">
                 <span className="text-white text-xs font-bold">Total</span>
-                <span className="text-green-400 text-sm font-bold">R$ {(totalPrice + 2.23).toFixed(2)}</span>
+                <span className="text-green-400 text-sm font-bold">R$ {(totalPrice + 2.23).toFixed(2).replace(".", ",")}</span>
               </div>
               <div className="px-4 py-3">
                 <span className="text-gray-400 text-xs block mb-1">Títulos</span>

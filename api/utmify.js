@@ -35,6 +35,7 @@ export default async function handler(req, res) {
             quantity,
             totalPriceInCents,
             trackingParameters,
+            isTest,
         } = req.body;
 
         const payload = {
@@ -54,8 +55,8 @@ export default async function handler(req, res) {
             },
             products: [
                 {
-                    id: "rifa-solidaria-italiancar",
-                    name: "Rifa Solidária ItalianCar",
+                    id: "produto-principal",
+                    name: "Produto Principal",
                     planId: null,
                     planName: null,
                     quantity: quantity || 1,
@@ -76,7 +77,7 @@ export default async function handler(req, res) {
                 gatewayFeeInCents: 223,
                 userCommissionInCents: (totalPriceInCents || 0) - 223,
             },
-            isTest: false,
+            isTest: isTest || false,
         };
 
         const utmifyRes = await fetch("https://api.utmify.com.br/api-credentials/orders", {

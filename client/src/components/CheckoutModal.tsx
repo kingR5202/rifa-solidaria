@@ -261,7 +261,7 @@ export function CheckoutModal({
             {/* Price Display */}
             <div className="bg-gray-800/30 border border-gray-700/40 rounded-2xl p-3 text-center backdrop-blur-sm">
               <p className="text-sm text-gray-300">Total a pagar:</p>
-              <p className="text-2xl font-bold text-white">R$ {totalPrice.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-white">R$ {totalPrice.toFixed(2).replace(".", ",")}</p>
             </div>
 
             {/* Button */}

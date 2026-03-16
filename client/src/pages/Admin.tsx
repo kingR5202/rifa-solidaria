@@ -85,6 +85,8 @@ export default function Admin() {
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testLoading, setTestLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [utmifyTestResult, setUtmifyTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [utmifyTestLoading, setUtmifyTestLoading] = useState(false);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     const id = Date.now();
@@ -136,6 +138,43 @@ export default function Admin() {
       setTestResult({ success: false, message: err.message || "Erro de rede" });
     } finally {
       setTestLoading(false);
+    }
+  };
+
+  const handleTestUtmify = async () => {
+    setUtmifyTestLoading(true);
+    setUtmifyTestResult(null);
+    try {
+      const res = await fetch("/api/utmify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: `test-${Date.now()}`,
+          status: "waiting_payment",
+          createdAt: new Date().toISOString(),
+          customer: {
+            name: "Teste Admin",
+            email: "teste@teste.com",
+            phone: "11999999999",
+            cpf: "00000000000",
+          },
+          quantity: 1,
+          totalPriceInCents: 100,
+          trackingParameters: {},
+          isTest: true,
+        }),
+      });
+      const data = await res.json();
+      setUtmifyTestResult({
+        success: res.ok,
+        message: res.ok
+          ? `Evento enviado com sucesso! (${JSON.stringify(data.response || data)})`
+          : `Erro: ${data.error || "Falha ao enviar"}`,
+      });
+    } catch (err: any) {
+      setUtmifyTestResult({ success: false, message: err.message || "Erro de rede" });
+    } finally {
+      setUtmifyTestLoading(false);
     }
   };
 
@@ -578,7 +617,7 @@ export default function Admin() {
                 Receita
               </div>
               <p className="text-2xl font-bold text-green-400">
-                R$ {Number(stats.total_revenue || 0).toFixed(2)}
+                R$ {Number(stats.total_revenue || 0).toFixed(2).replace(".", ",")}
               </p>
             </div>
 
@@ -762,6 +801,21 @@ export default function Admin() {
               placeholder="Token Utmify"
               className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
             />
+            <Button
+              onClick={handleTestUtmify}
+              disabled={utmifyTestLoading || !utmifyToken}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white text-sm py-2"
+            >
+              {utmifyTestLoading ? "Enviando..." : "Testar Utmify"}
+            </Button>
+            {utmifyTestResult && (
+              <div className={`p-3 rounded-lg text-sm ${utmifyTestResult.success ? "bg-green-500/20 border border-green-500/50" : "bg-red-500/20 border border-red-500/50"}`}>
+                <span className="flex items-center gap-2">
+                  {utmifyTestResult.success ? <CheckCircle className="w-4 h-4 text-green-400" /> : <XCircle className="w-4 h-4 text-red-400" />}
+                  {utmifyTestResult.message}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Microsoft Clarity */}
@@ -1011,7 +1065,7 @@ export default function Admin() {
                         {order.quantity}
                       </td>
                       <td className="p-3 text-right text-green-400 font-bold">
-                        R$ {Number(order.total_price).toFixed(2)}
+                        R$ {Number(order.total_price).toFixed(2).replace(".", ",")}
                       </td>
                       <td className="p-3 text-center">
                         <span
@@ -1097,7 +1151,7 @@ export default function Admin() {
                         {order.quantity !== 1 ? "s" : ""}
                       </span>
                       <span className="text-green-400 font-bold">
-                        R$ {Number(order.total_price).toFixed(2)}
+                        R$ {Number(order.total_price).toFixed(2).replace(".", ",")}
                       </span>
                     </div>
 
@@ -1290,7 +1344,7 @@ export default function Admin() {
                       <td className="p-3 text-gray-300">{tx.customer_phone}</td>
                       <td className="p-3 text-center text-green-400 font-bold">{tx.quantity}</td>
                       <td className="p-3 text-right text-green-400 font-bold">
-                        R$ {Number(tx.total_price).toFixed(2)}
+                        R$ {Number(tx.total_price).toFixed(2).replace(".", ",")}
                       </td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-1 rounded-full text-xs font-bold ${
@@ -1335,7 +1389,7 @@ export default function Admin() {
                     <p className="text-gray-400 text-sm">{tx.customer_phone}</p>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400 text-sm">{tx.quantity} título{tx.quantity !== 1 ? "s" : ""}</span>
-                      <span className="text-green-400 font-bold">R$ {Number(tx.total_price).toFixed(2)}</span>
+                      <span className="text-green-400 font-bold">R$ {Number(tx.total_price).toFixed(2).replace(".", ",")}</span>
                     </div>
                     <p className="text-gray-500 text-xs">{formatDate(tx.created_at)}</p>
                     {tx.paid_at && <p className="text-green-400/60 text-xs">Pago: {formatDate(tx.paid_at)}</p>}

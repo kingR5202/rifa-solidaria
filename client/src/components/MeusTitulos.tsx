@@ -114,7 +114,7 @@ export function MeusTitulos({ isOpen, phone, onClose }: MeusTitulosProps) {
                       título{order.quantity !== 1 ? "s" : ""} : {order.quantity}
                     </p>
                     <p className="text-gray-300 text-xs">
-                      Total: R$ {Number(order.total_price).toFixed(2)}
+                      Total: R$ {Number(order.total_price).toFixed(2).replace(".", ",")}
                     </p>
                     <p className="text-gray-500 text-xs">ID: {order.id}</p>
                   </div>
