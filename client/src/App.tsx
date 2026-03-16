@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
+import TrackingScripts from "./components/TrackingScripts";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
@@ -33,6 +34,7 @@ function App() {
         // switchable
       >
         <TooltipProvider>
+          <TrackingScripts />
           <Toaster />
           <Router />
         </TooltipProvider>

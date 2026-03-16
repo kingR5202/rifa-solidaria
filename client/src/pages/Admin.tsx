@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Lock, Users, Ticket, DollarSign, ShoppingCart, LogOut, Eye, CreditCard, Trash2 } from "lucide-react";
+import { Lock, Users, Ticket, DollarSign, ShoppingCart, LogOut, Eye, CreditCard, Trash2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Order {
@@ -55,6 +55,11 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState<"orders" | "users" | "pix">("orders");
   const [instagramUrl, setInstagramUrl] = useState("");
   const [instagramSaved, setInstagramSaved] = useState(false);
+  const [metaPixelId, setMetaPixelId] = useState("");
+  const [metaAccessToken, setMetaAccessToken] = useState("");
+  const [utmifyToken, setUtmifyToken] = useState("");
+  const [clarityId, setClarityId] = useState("");
+  const [trackingSaved, setTrackingSaved] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +94,10 @@ export default function Admin() {
         setUsers(usersData.users || []);
         setTransactions(txData.transactions || []);
         if (settingsData.instagram_url) setInstagramUrl(settingsData.instagram_url);
+        if (settingsData.meta_pixel_id) setMetaPixelId(settingsData.meta_pixel_id);
+        if (settingsData.meta_access_token) setMetaAccessToken(settingsData.meta_access_token);
+        if (settingsData.utmify_token) setUtmifyToken(settingsData.utmify_token);
+        if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
       } catch {}
     } catch (err: any) {
       setError(err?.message || "Erro ao conectar");
@@ -119,6 +128,10 @@ export default function Admin() {
         setUsers(usersData.users || []);
         setTransactions(txData.transactions || []);
         if (settingsData.instagram_url) setInstagramUrl(settingsData.instagram_url);
+        if (settingsData.meta_pixel_id) setMetaPixelId(settingsData.meta_pixel_id);
+        if (settingsData.meta_access_token) setMetaAccessToken(settingsData.meta_access_token);
+        if (settingsData.utmify_token) setUtmifyToken(settingsData.utmify_token);
+        if (settingsData.clarity_id) setClarityId(settingsData.clarity_id);
       } catch {}
     } catch {
       sessionStorage.removeItem("admin_token");
@@ -156,6 +169,23 @@ export default function Admin() {
       });
       setInstagramSaved(true);
       setTimeout(() => setInstagramSaved(false), 2000);
+    } catch {}
+  };
+
+  const handleSaveTracking = async () => {
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meta_pixel_id: metaPixelId,
+          meta_access_token: metaAccessToken,
+          utmify_token: utmifyToken,
+          clarity_id: clarityId,
+        }),
+      });
+      setTrackingSaved(true);
+      setTimeout(() => setTrackingSaved(false), 2000);
     } catch {}
   };
 
@@ -366,6 +396,66 @@ export default function Admin() {
               {instagramSaved ? "Salvo!" : "Salvar"}
             </Button>
           </div>
+        </div>
+
+        {/* Tracking Settings */}
+        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl p-4 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Settings size={18} className="text-yellow-400" />
+            <h3 className="text-white font-bold">Rastreamento & Integrações</h3>
+          </div>
+
+          {/* Meta CAPI */}
+          <div className="space-y-2">
+            <label className="block text-gray-400 text-sm font-bold">Meta CAPI (Facebook Pixel)</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={metaPixelId}
+                onChange={(e) => setMetaPixelId(e.target.value)}
+                placeholder="ID do Pixel (ex: 123456789012345)"
+                className="bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+              />
+              <input
+                type="text"
+                value={metaAccessToken}
+                onChange={(e) => setMetaAccessToken(e.target.value)}
+                placeholder="Token de Acesso (CAPI)"
+                className="bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Utmify */}
+          <div className="space-y-2">
+            <label className="block text-gray-400 text-sm font-bold">Utmify</label>
+            <input
+              type="text"
+              value={utmifyToken}
+              onChange={(e) => setUtmifyToken(e.target.value)}
+              placeholder="Token Utmify"
+              className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+            />
+          </div>
+
+          {/* Microsoft Clarity */}
+          <div className="space-y-2">
+            <label className="block text-gray-400 text-sm font-bold">Microsoft Clarity</label>
+            <input
+              type="text"
+              value={clarityId}
+              onChange={(e) => setClarityId(e.target.value)}
+              placeholder="ID do Projeto (ex: vwfmrsgeqj)"
+              className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+            />
+          </div>
+
+          <Button
+            onClick={handleSaveTracking}
+            className="bg-yellow-400 text-black font-bold px-6 py-2.5 rounded-lg hover:bg-yellow-300 text-sm"
+          >
+            {trackingSaved ? "Salvo!" : "Salvar Rastreamento"}
+          </Button>
         </div>
 
         {/* Tabs */}
