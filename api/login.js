@@ -1,4 +1,4 @@
-const { verifyPassword, generateToken, checkRateLimit, recordLoginAttempt, getClientIP } = require('./_auth');
+import { verifyPassword, generateToken, checkRateLimit, recordLoginAttempt, getClientIP } from './_auth.js';
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');

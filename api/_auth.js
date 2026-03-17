@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'italiancar2024';
 const JWT_SECRET = process.env.JWT_SECRET || ADMIN_PASSWORD + '_jwt_secret_2024';
@@ -107,7 +107,7 @@ function getClientIP(req) {
         || '0.0.0.0';
 }
 
-module.exports = {
+export {
     verifyPassword,
     generateToken,
     verifyToken,
