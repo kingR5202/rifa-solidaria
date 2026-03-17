@@ -99,19 +99,24 @@ export default async function handler(req, res) {
 
             const customerName = metadata?.customer?.nome || 'Cliente';
             const customerPhone = (metadata?.customer?.telefone || '11999999999').replace(/\D/g, '');
+            const customerEmail = metadata?.customer?.email || null;
+            const customerCpf = metadata?.customer?.cpf ? metadata.customer.cpf.replace(/\D/g, '') : null;
 
             const payload = {
                 method: 'Pix',
                 amount: finalAmountCents,
                 currency: 'BRL',
                 externalId: externalId,
-                description: `Rifa Solidária ItalianCar - ${externalId}`,
+                description: `Pagamento ${externalId}`,
                 callbackUrl: `https://${req.headers.host}/api/webhook`,
                 pixExpirationMinutes: 10,
                 customerName: customerName,
-                customerDocument: generateCPF(),
-                customerEmail: `${customerPhone}@italiancar.com`
+                customerDocument: customerCpf || generateCPF(),
             };
+
+            if (customerEmail) {
+                payload.customerEmail = customerEmail;
+            }
 
             if (metadata) {
                 payload.metadata = JSON.stringify(metadata);

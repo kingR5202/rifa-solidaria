@@ -109,7 +109,7 @@ export default function Home() {
             trackMetaEvent("Purchase", {
               currency: "BRL",
               value: totalPrice,
-              content_name: "Rifa Solidária ItalianCar",
+              content_name: "Produto Principal",
               content_category: "infoproduto",
               content_type: "product",
               num_items: quantity,
@@ -216,6 +216,8 @@ export default function Home() {
             customer: {
               nome: data.name,
               telefone: data.phone,
+              email: data.email || null,
+              cpf: data.cpf || null,
             },
             quantity,
           },
@@ -245,7 +247,7 @@ export default function Home() {
       trackMetaEvent("InitiateCheckout", {
         currency: "BRL",
         value: totalPrice,
-        content_name: "Rifa Solidária ItalianCar",
+        content_name: "Produto Principal",
         content_category: "infoproduto",
         num_items: quantity,
       }, {
