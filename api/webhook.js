@@ -84,7 +84,13 @@ export default async function handler(req, res) {
     }
 
     try {
-        const body = req.body;
+        // Robust body parsing — Safefy may send without Content-Type: application/json
+        let body = req.body;
+        if (!body || typeof body === 'string') {
+            try { body = body ? JSON.parse(body) : {}; } catch { body = {}; }
+        }
+        if (!body || typeof body !== 'object') body = {};
+
         console.log('[Webhook Safefy] Recebido:', JSON.stringify(body));
 
         const event = req.headers['x-safefy-event'] || '';

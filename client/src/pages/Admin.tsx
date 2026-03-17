@@ -92,6 +92,8 @@ export default function Admin() {
   const [utmifyTestLoading, setUtmifyTestLoading] = useState(false);
   const [ticketPrice, setTicketPrice] = useState("10.00");
   const [ticketPriceSaved, setTicketPriceSaved] = useState(false);
+  const [reprocessLoading, setReprocessLoading] = useState(false);
+  const [reprocessResult, setReprocessResult] = useState<{ processed: number; total_pending: number; results: any[] } | null>(null);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     const id = Date.now();
@@ -474,6 +476,35 @@ export default function Admin() {
     }
   };
 
+  const handleReprocess = async () => {
+    setReprocessLoading(true);
+    setReprocessResult(null);
+    const token = sessionStorage.getItem("admin_token") || "";
+    try {
+      const res = await fetch("/api/reprocess", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao reprocessar");
+      setReprocessResult(data);
+      if (data.processed > 0) {
+        showToast(`${data.processed} pagamento(s) reprocessado(s) com sucesso!`);
+        // Refresh orders list
+        const token2 = sessionStorage.getItem("admin_token") || "";
+        const r = await fetch("/api/admin", { headers: { Authorization: `Bearer ${token2}` } });
+        const d = await r.json();
+        if (r.ok) { setOrders(d.orders); setStats(d.stats); }
+      } else {
+        showToast("Nenhum pagamento novo para processar");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Erro ao reprocessar", "error");
+    } finally {
+      setReprocessLoading(false);
+    }
+  };
+
   const [selectedUsers, setSelectedUsers] = useState<Set<number>>(new Set());
   const [selectedTx, setSelectedTx] = useState<Set<number>>(new Set());
 
@@ -680,6 +711,40 @@ export default function Admin() {
             </div>
           </div>
         )}
+
+        {/* Reprocessar Pagamentos Perdidos */}
+        <div className="bg-gray-900/40 backdrop-blur-xl border border-orange-500/30 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                <CreditCard size={16} className="text-orange-400" />
+                Reprocessar Pagamentos Perdidos
+              </h3>
+              <p className="text-gray-500 text-xs mt-0.5">Verifica transações pendentes na Safefy e cria os pedidos que faltam</p>
+            </div>
+            <Button
+              onClick={handleReprocess}
+              disabled={reprocessLoading}
+              className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-2 rounded-lg text-sm disabled:opacity-50"
+            >
+              {reprocessLoading ? "Verificando..." : "Reprocessar Agora"}
+            </Button>
+          </div>
+          {reprocessResult && (
+            <div className="bg-black/30 rounded-lg p-3 text-xs space-y-1">
+              <p className="text-gray-300">
+                Verificadas: <span className="text-white font-bold">{reprocessResult.total_pending}</span> pendentes |
+                Processadas: <span className="text-green-400 font-bold">{reprocessResult.processed}</span>
+              </p>
+              {reprocessResult.results.filter(r => r.result === 'order_created').map((r, i) => (
+                <p key={i} className="text-green-400">✓ {r.customer} — códigos: {r.codes}</p>
+              ))}
+              {reprocessResult.results.filter(r => r.result === 'error').map((r, i) => (
+                <p key={i} className="text-red-400">✗ {r.id}: {r.message}</p>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Valor do Título */}
         <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl p-4">
