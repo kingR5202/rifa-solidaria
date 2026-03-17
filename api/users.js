@@ -1,3 +1,5 @@
+const { requireAdmin } = require('./_auth');
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
@@ -20,7 +22,7 @@ async function supabaseFetch(path, options = {}) {
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -29,7 +31,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        // POST: Save/update user on checkout or login
+        // POST: Save/update user on checkout or login (PUBLIC)
         if (req.method === 'POST') {
             const { phone, name } = req.body;
 
@@ -37,13 +39,11 @@ export default async function handler(req, res) {
                 return res.status(400).json({ error: 'Telefone obrigatório' });
             }
 
-            // Check if user already exists
             const existing = await supabaseFetch(
                 `users?phone=eq.${encodeURIComponent(phone)}`
             );
 
             if (existing.length > 0) {
-                // Update last_login and name if provided
                 const updateData = { last_login: new Date().toISOString() };
                 if (name) updateData.name = name;
 
@@ -57,7 +57,6 @@ export default async function handler(req, res) {
                 return res.status(200).json({ success: true, user: existing[0], isNew: false });
             }
 
-            // Create new user
             const data = await supabaseFetch('users', {
                 method: 'POST',
                 body: JSON.stringify({
@@ -70,16 +69,26 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, user: data[0], isNew: true });
         }
 
-        // GET: Get all users (for admin)
+        // GET: Get all users - REQUIRES ADMIN
         if (req.method === 'GET') {
+            const admin = requireAdmin(req);
+            if (!admin) {
+                return res.status(401).json({ error: 'Não autorizado' });
+            }
+
             const data = await supabaseFetch(
                 'users?select=*&order=created_at.desc'
             );
             return res.status(200).json({ users: data });
         }
 
-        // DELETE: Delete user by id
+        // DELETE: Delete user by id - REQUIRES ADMIN
         if (req.method === 'DELETE') {
+            const admin = requireAdmin(req);
+            if (!admin) {
+                return res.status(401).json({ error: 'Não autorizado' });
+            }
+
             const { id } = req.query;
             if (!id) {
                 return res.status(400).json({ error: 'ID obrigatório' });

@@ -189,26 +189,40 @@ export default function Admin() {
     setError("");
 
     try {
+      // Step 1: Get JWT token via login endpoint
+      const loginRes = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const loginData = await loginRes.json();
+      if (!loginRes.ok) {
+        throw new Error(loginData.error || "Senha incorreta");
+      }
+      const token = loginData.token;
+      sessionStorage.setItem("admin_token", token);
+
+      // Step 2: Fetch admin data with JWT token
       const res = await fetch("/api/admin", {
-        headers: { Authorization: `Bearer ${password}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Senha incorreta");
+        throw new Error(data.error || "Erro ao carregar dados");
       }
 
       setOrders(data.orders);
       setStats(data.stats);
       setIsAuthenticated(true);
-      sessionStorage.setItem("admin_token", password);
       // Fetch users, transactions and settings
       try {
+        const authHeader = { Authorization: `Bearer ${token}` };
         const [usersRes, txRes, settingsRes] = await Promise.all([
-          fetch("/api/users"),
-          fetch("/api/transactions"),
-          fetch("/api/settings"),
+          fetch("/api/users", { headers: authHeader }),
+          fetch("/api/transactions", { headers: authHeader }),
+          fetch("/api/settings", { headers: authHeader }),
         ]);
         const usersData = await usersRes.json();
         const txData = await txRes.json();
@@ -260,10 +274,11 @@ export default function Admin() {
       setStats(data.stats);
       setIsAuthenticated(true);
       try {
+        const authHeader = { Authorization: `Bearer ${token}` };
         const [usersRes, txRes, settingsRes] = await Promise.all([
-          fetch("/api/users"),
-          fetch("/api/transactions"),
-          fetch("/api/settings"),
+          fetch("/api/users", { headers: authHeader }),
+          fetch("/api/transactions", { headers: authHeader }),
+          fetch("/api/settings", { headers: authHeader }),
         ]);
         const usersData = await usersRes.json();
         const txData = await txRes.json();
@@ -357,10 +372,11 @@ export default function Admin() {
   };
 
   const handleSaveCheckoutFields = async () => {
+    const token = sessionStorage.getItem("admin_token") || "";
     try {
       await fetch("/api/settings", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ checkout_fields: checkoutFields }),
       });
       showToast("Campos do checkout salvos com sucesso!");
@@ -396,10 +412,11 @@ export default function Admin() {
   };
 
   const handleSaveInstagram = async () => {
+    const token = sessionStorage.getItem("admin_token") || "";
     try {
       await fetch("/api/settings", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ instagram_url: instagramUrl }),
       });
       setInstagramSaved(true);
@@ -416,10 +433,11 @@ export default function Admin() {
       showToast("Valor inválido", "error");
       return;
     }
+    const token = sessionStorage.getItem("admin_token") || "";
     try {
       await fetch("/api/settings", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ticket_price: price }),
       });
       setTicketPriceSaved(true);
@@ -431,10 +449,11 @@ export default function Admin() {
   };
 
   const handleSaveTracking = async () => {
+    const token = sessionStorage.getItem("admin_token") || "";
     try {
       await fetch("/api/settings", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           meta_pixel_id: metaPixelId,
           meta_access_token: metaAccessToken,
@@ -487,8 +506,9 @@ export default function Admin() {
 
   const deleteSelectedUsers = async () => {
     if (!confirm(`Deletar ${selectedUsers.size} usuário(s)?`)) return;
+    const token = sessionStorage.getItem("admin_token") || "";
     for (const id of selectedUsers) {
-      await fetch(`/api/users?id=${id}`, { method: "DELETE" });
+      await fetch(`/api/users?id=${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
     }
     setUsers((prev) => prev.filter((u) => !selectedUsers.has(u.id)));
     setSelectedUsers(new Set());
@@ -512,8 +532,9 @@ export default function Admin() {
 
   const deleteSelectedTx = async () => {
     if (!confirm(`Deletar ${selectedTx.size} transação(ões)?`)) return;
+    const token = sessionStorage.getItem("admin_token") || "";
     for (const id of selectedTx) {
-      await fetch(`/api/transactions?id=${id}`, { method: "DELETE" });
+      await fetch(`/api/transactions?id=${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
     }
     setTransactions((prev) => prev.filter((t) => !selectedTx.has(t.id)));
     setSelectedTx(new Set());

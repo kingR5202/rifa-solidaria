@@ -1,3 +1,5 @@
+const { requireAdmin } = require('./_auth');
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
@@ -20,7 +22,7 @@ async function supabaseFetch(path, options = {}) {
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, PATCH, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -29,31 +31,35 @@ export default async function handler(req, res) {
     }
 
     try {
-        // POST: Save new PIX transaction
+        // POST: Save new PIX transaction (PUBLIC - called during checkout)
         if (req.method === 'POST') {
-            const { transaction_id, customer_name, customer_phone, quantity, total_price, pix_code } = req.body;
+            const { transaction_id, customer_name, customer_phone, customer_email, customer_cpf, quantity, total_price, pix_code } = req.body;
 
             if (!transaction_id || !customer_name || !customer_phone) {
                 return res.status(400).json({ error: 'Dados incompletos' });
             }
 
+            const txData = {
+                transaction_id,
+                customer_name,
+                customer_phone,
+                quantity,
+                total_price,
+                pix_code: pix_code || '',
+                status: 'pending',
+            };
+            if (customer_email) txData.customer_email = customer_email;
+            if (customer_cpf) txData.customer_cpf = customer_cpf;
+
             const data = await supabaseFetch('transactions', {
                 method: 'POST',
-                body: JSON.stringify({
-                    transaction_id,
-                    customer_name,
-                    customer_phone,
-                    quantity,
-                    total_price,
-                    pix_code: pix_code || '',
-                    status: 'pending',
-                }),
+                body: JSON.stringify(txData),
             });
 
             return res.status(200).json({ success: true, id: data[0]?.id });
         }
 
-        // PATCH: Update transaction status
+        // PATCH: Update transaction status (PUBLIC - called when payment confirmed)
         if (req.method === 'PATCH') {
             const { transaction_id, status } = req.body;
 
@@ -75,16 +81,26 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true });
         }
 
-        // GET: Get all transactions
+        // GET: Get all transactions - REQUIRES ADMIN
         if (req.method === 'GET') {
+            const admin = requireAdmin(req);
+            if (!admin) {
+                return res.status(401).json({ error: 'Não autorizado' });
+            }
+
             const data = await supabaseFetch(
                 'transactions?select=*&order=created_at.desc'
             );
             return res.status(200).json({ transactions: data });
         }
 
-        // DELETE: Delete transaction by id
+        // DELETE: Delete transaction by id - REQUIRES ADMIN
         if (req.method === 'DELETE') {
+            const admin = requireAdmin(req);
+            if (!admin) {
+                return res.status(401).json({ error: 'Não autorizado' });
+            }
+
             const { id } = req.query;
             if (!id) {
                 return res.status(400).json({ error: 'ID obrigatório' });

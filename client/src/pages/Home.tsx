@@ -122,52 +122,20 @@ export default function Home() {
             });
           }
 
-          // Save order and update transaction status
-          if (customerData) {
-            try {
-              await fetch("/api/orders", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  transaction_id: pixData.transactionId,
-                  customer_name: customerData.name,
-                  customer_phone: customerData.phone,
-                  customer_email: customerData.email || null,
-                  customer_cpf: customerData.cpf || null,
-                  quantity,
-                  total_price: totalPrice,
-                }),
-              });
-              // Update transaction status to paid
-              await fetch("/api/transactions", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  transaction_id: pixData.transactionId,
-                  status: "paid",
-                }),
-              });
-              // Send confirmation email if customer provided email
-              if (customerData.email) {
-                fetch("/api/send-email", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    to: customerData.email,
-                    customerName: customerData.name,
-                    quantity,
-                    totalPrice,
-                    transactionId: pixData.transactionId,
-                  }),
-                }).catch(() => {});
-              }
-            } catch (err) {
-              console.error("Save order error:", err);
-            }
-
-            // Send Utmify paid event
-            const paidAt = new Date().toISOString().slice(0, 19).replace("T", " ");
-            sendUtmifyEvent(pixData.transactionId, "paid", pixCreatedAt || paidAt, paidAt, customerData, quantity, Math.round((totalPrice + TRANSACTION_FEE) * 100));
+          // Order creation, transaction update, and Utmify are handled server-side by webhook
+          // Only send email confirmation from client if user provided email
+          if (customerData?.email) {
+            fetch("/api/send-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                to: customerData.email,
+                customerName: customerData.name,
+                quantity,
+                totalPrice,
+                transactionId: pixData.transactionId,
+              }),
+            }).catch(() => {});
           }
         }
       } catch (err) {
@@ -265,6 +233,8 @@ export default function Home() {
             transaction_id: result.id,
             customer_name: data.name,
             customer_phone: data.phone,
+            customer_email: data.email || null,
+            customer_cpf: data.cpf || null,
             quantity,
             total_price: totalPrice,
             pix_code: pixCode,
