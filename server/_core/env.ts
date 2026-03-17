@@ -9,6 +9,8 @@ export const ENV = {
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   safefyPublicKey: process.env.SAFEFY_PUBLIC_KEY ?? "",
   safefySecretKey: process.env.SAFEFY_SECRET_KEY ?? "",
+  safefySandboxPublicKey: process.env.SAFEFY_SANDBOX_PUBLIC_KEY ?? "",
+  safefySandboxSecretKey: process.env.SAFEFY_SANDBOX_SECRET_KEY ?? "",
   safefyTestMode: process.env.SAFEFY_TEST_MODE === "true",
   safefyOfflineMode: process.env.SAFEFY_OFFLINE_MODE === "true",
 };

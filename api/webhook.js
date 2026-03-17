@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
@@ -30,7 +32,7 @@ async function getUtmifyToken() {
     }
 }
 
-async function sendUtmifyEvent(orderId, status, createdAt, approvedDate, customer, quantity, totalPriceInCents) {
+async function sendUtmifyEvent(orderId, status, createdAt, approvedDate, customer, quantity, totalPriceInCents, feeInCents = 0) {
     const token = await getUtmifyToken();
     if (!token) return;
 
@@ -60,8 +62,8 @@ async function sendUtmifyEvent(orderId, status, createdAt, approvedDate, custome
         trackingParameters: {},
         commission: {
             totalPriceInCents: totalPriceInCents || 0,
-            gatewayFeeInCents: 223,
-            userCommissionInCents: (totalPriceInCents || 0) - 223,
+            gatewayFeeInCents: feeInCents || 0,
+            userCommissionInCents: (totalPriceInCents || 0) - (feeInCents || 0),
         },
         isTest: false,
     };
@@ -78,6 +80,49 @@ async function sendUtmifyEvent(orderId, status, createdAt, approvedDate, custome
     }
 }
 
+/**
+ * Validate HMAC-SHA256 signature from Safefy webhook
+ * For payment events, the secret is the paymentId (transaction ID)
+ */
+function validateSignature(req, body, transactionId) {
+    const signature = req.headers['x-safefy-signature'];
+
+    if (!signature) {
+        console.log('[Webhook] No X-Safefy-Signature header present - skipping validation');
+        return true; // Allow webhooks without signature for backward compatibility
+    }
+
+    if (!transactionId) {
+        console.log('[Webhook] No transactionId for signature validation');
+        return false;
+    }
+
+    try {
+        const bodyString = typeof body === 'string' ? body : JSON.stringify(body);
+        const expectedSignature = crypto
+            .createHmac('sha256', transactionId)
+            .update(bodyString)
+            .digest('hex');
+
+        const isValid = crypto.timingSafeEqual(
+            Buffer.from(signature),
+            Buffer.from(expectedSignature)
+        );
+
+        if (!isValid) {
+            console.warn('[Webhook] Signature mismatch!', {
+                received: signature.substring(0, 10) + '...',
+                expected: expectedSignature.substring(0, 10) + '...',
+            });
+        }
+
+        return isValid;
+    } catch (err) {
+        console.error('[Webhook] Signature validation error:', err.message);
+        return false;
+    }
+}
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Método não permitido' });
@@ -85,24 +130,39 @@ export default async function handler(req, res) {
 
     try {
         // Robust body parsing — Safefy may send without Content-Type: application/json
-        let body = req.body;
+        let rawBody = req.body;
+        let body = rawBody;
         if (!body || typeof body === 'string') {
             try { body = body ? JSON.parse(body) : {}; } catch { body = {}; }
         }
         if (!body || typeof body !== 'object') body = {};
 
         console.log('[Webhook Safefy] Recebido:', JSON.stringify(body));
+        console.log('[Webhook Safefy] Headers:', {
+            event: req.headers['x-safefy-event'],
+            delivery: req.headers['x-safefy-delivery'],
+            attempt: req.headers['x-safefy-attempt'],
+            signature: req.headers['x-safefy-signature'] ? 'present' : 'absent',
+        });
 
         const event = req.headers['x-safefy-event'] || '';
         const transactionData = body.data || body;
         const transactionId = transactionData.id || '';
         const externalId = transactionData.externalId || '';
         const status = transactionData.status || '';
+        const feeInCents = transactionData.fee || 0;
+        const netAmountCents = transactionData.netAmount || 0;
+
+        // Validate HMAC-SHA256 signature
+        if (!validateSignature(req, rawBody, transactionId)) {
+            console.error('[Webhook] Signature validation FAILED for:', transactionId);
+            return res.status(401).json({ error: 'Assinatura inválida' });
+        }
 
         const isPaid = (event === 'payment.completed' || status === 'Completed');
 
         if (isPaid && (transactionId || externalId)) {
-            console.log(`[Webhook] PAGAMENTO CONFIRMADO: ${transactionId} / ${externalId}`);
+            console.log(`[Webhook] PAGAMENTO CONFIRMADO: ${transactionId} / ${externalId} (fee: ${feeInCents}, net: ${netAmountCents})`);
 
             const lookupId = transactionId || externalId;
 
@@ -128,7 +188,7 @@ export default async function handler(req, res) {
 
             const tx = transactions[0];
 
-            // 2. Check if order already exists (avoid duplicates)
+            // 2. Check if order already exists (avoid duplicates / idempotency)
             const existingOrders = await supabaseFetch(
                 `orders?transaction_id=eq.${encodeURIComponent(tx.transaction_id)}&select=id`
             );
@@ -179,8 +239,9 @@ export default async function handler(req, res) {
                 }
             );
 
-            // 5. Send Utmify paid event
+            // 5. Send Utmify paid event with dynamic fee from Safefy
             const paidAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            const totalCents = Math.round((parseFloat(tx.total_price) || 0) * 100);
             await sendUtmifyEvent(
                 tx.transaction_id,
                 'paid',
@@ -188,11 +249,49 @@ export default async function handler(req, res) {
                 paidAt,
                 { name: tx.customer_name, phone: tx.customer_phone, email: tx.customer_email || '', cpf: tx.customer_cpf || '' },
                 tx.quantity || 1,
-                Math.round((parseFloat(tx.total_price) || 0) * 100)
+                totalCents,
+                feeInCents // Dynamic fee from Safefy webhook
             );
 
             console.log('[Webhook] Payment fully processed:', tx.transaction_id);
             return res.status(200).json({ received: true, action: 'order_created' });
+        }
+
+        // Handle other events (expired, failed, etc.)
+        if (event === 'payment.expired' || status === 'Expired') {
+            console.log('[Webhook] Payment expired:', transactionId);
+            if (transactionId) {
+                try {
+                    await supabaseFetch(
+                        `transactions?transaction_id=eq.${encodeURIComponent(transactionId)}`,
+                        {
+                            method: 'PATCH',
+                            body: JSON.stringify({ status: 'expired' }),
+                        }
+                    );
+                } catch (err) {
+                    console.error('[Webhook] Error updating expired status:', err.message);
+                }
+            }
+            return res.status(200).json({ received: true, action: 'expired' });
+        }
+
+        if (event === 'payment.failed' || status === 'Failed') {
+            console.log('[Webhook] Payment failed:', transactionId);
+            if (transactionId) {
+                try {
+                    await supabaseFetch(
+                        `transactions?transaction_id=eq.${encodeURIComponent(transactionId)}`,
+                        {
+                            method: 'PATCH',
+                            body: JSON.stringify({ status: 'failed' }),
+                        }
+                    );
+                } catch (err) {
+                    console.error('[Webhook] Error updating failed status:', err.message);
+                }
+            }
+            return res.status(200).json({ received: true, action: 'failed' });
         }
 
         return res.status(200).json({ received: true });

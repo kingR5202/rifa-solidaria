@@ -44,7 +44,7 @@ async function getUtmifyToken() {
     } catch { return null; }
 }
 
-async function sendUtmifyEvent(orderId, status, createdAt, approvedDate, customer, quantity, totalPriceInCents) {
+async function sendUtmifyEvent(orderId, status, createdAt, approvedDate, customer, quantity, totalPriceInCents, feeInCents = 0) {
     const token = await getUtmifyToken();
     if (!token) return;
 
@@ -77,12 +77,12 @@ async function sendUtmifyEvent(orderId, status, createdAt, approvedDate, custome
             trackingParameters: {},
             commission: {
                 totalPriceInCents: totalPriceInCents || 0,
-                gatewayFeeInCents: 223,
-                userCommissionInCents: (totalPriceInCents || 0) - 223,
+                gatewayFeeInCents: feeInCents || 0,
+                userCommissionInCents: (totalPriceInCents || 0) - (feeInCents || 0),
             },
             isTest: false,
         }),
-    }).catch(() => {});
+    }).catch(() => { });
 }
 
 export default async function handler(req, res) {
@@ -147,6 +147,7 @@ export default async function handler(req, res) {
 
                     const safefyData = await safefyRes.json();
                     const safefyStatus = safefyData.data?.status || '';
+                    const safefyFee = safefyData.data?.fee || 0;
                     const isPaid = safefyStatus === 'Completed';
 
                     if (!isPaid) {
@@ -195,14 +196,15 @@ export default async function handler(req, res) {
                         body: JSON.stringify({ status: 'paid', paid_at: new Date().toISOString() }),
                     });
 
-                    // Send Utmify
+                    // Send Utmify with dynamic fee
                     const paidAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
                     await sendUtmifyEvent(
                         tx.transaction_id, 'paid',
                         tx.created_at || paidAt, paidAt,
                         { name: tx.customer_name, phone: tx.customer_phone, email: tx.customer_email || '', cpf: tx.customer_cpf || '' },
                         tx.quantity || 1,
-                        Math.round((parseFloat(tx.total_price) || 0) * 100)
+                        Math.round((parseFloat(tx.total_price) || 0) * 100),
+                        safefyFee
                     );
 
                     results.push({ id: tx.transaction_id, result: 'order_created', codes: codes.join(','), customer: tx.customer_name });
