@@ -10,13 +10,6 @@
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-
-    // Só intercepta /api/utmify
-    if (!url.pathname.startsWith("/api/utmify")) {
-      return fetch(request);
-    }
-
     // CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, {

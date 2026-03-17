@@ -59,7 +59,7 @@ export default function Home() {
 
   // Send order to Utmify
   const sendUtmifyEvent = (orderId: string, status: string, createdAt: string, approvedDate: string | null, customer: { name: string; phone: string; email: string; cpf: string }, qty: number, totalCents: number) => {
-    fetch("https://utmify-proxy.botecoconta84.workers.dev/api/utmify", {
+    fetch("https://utmify-proxy.botecoconta84.workers.dev/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
