@@ -94,6 +94,9 @@ export default function Admin() {
   const [ticketPriceSaved, setTicketPriceSaved] = useState(false);
   const [reprocessLoading, setReprocessLoading] = useState(false);
   const [reprocessResult, setReprocessResult] = useState<{ processed: number; total_pending: number; results: any[] } | null>(null);
+  const [testPaymentLoading, setTestPaymentLoading] = useState(false);
+  const [testPaymentResult, setTestPaymentResult] = useState<any>(null);
+  const [testQuantity, setTestQuantity] = useState(1);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     const id = Date.now();
@@ -505,6 +508,75 @@ export default function Admin() {
     }
   };
 
+  const handleCreateTestPayment = async (autoComplete: boolean = false) => {
+    setTestPaymentLoading(true);
+    setTestPaymentResult(null);
+    const token = sessionStorage.getItem("admin_token") || "";
+    try {
+      const res = await fetch("/api/test-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ quantity: testQuantity, autoComplete }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao criar pagamento de teste");
+      setTestPaymentResult(data);
+      showToast(data.message || "Pagamento de teste criado com sucesso!");
+
+      // Refresh orders and transactions
+      const token2 = sessionStorage.getItem("admin_token") || "";
+      const r = await fetch("/api/admin", { headers: { Authorization: `Bearer ${token2}` } });
+      const d = await r.json();
+      if (r.ok) {
+        setOrders(d.orders);
+        setStats(d.stats);
+      }
+
+      // Refresh transactions tab if active
+      if (activeTab === "transactions") {
+        const txRes = await fetch("/api/transactions", { headers: { Authorization: `Bearer ${token2}` } });
+        const txData = await txRes.json();
+        if (txRes.ok) setTransactions(txData.transactions);
+      }
+    } catch (err: any) {
+      showToast(err.message || "Erro ao criar pagamento de teste", "error");
+    } finally {
+      setTestPaymentLoading(false);
+    }
+  };
+
+  const handleSimulateWebhook = async (transactionId: string) => {
+    const token = sessionStorage.getItem("admin_token") || "";
+    try {
+      const res = await fetch("/api/test-webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ transaction_id: transactionId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao simular webhook");
+      showToast("Webhook simulado com sucesso!");
+
+      // Refresh orders and transactions
+      const token2 = sessionStorage.getItem("admin_token") || "";
+      const r = await fetch("/api/admin", { headers: { Authorization: `Bearer ${token2}` } });
+      const d = await r.json();
+      if (r.ok) {
+        setOrders(d.orders);
+        setStats(d.stats);
+      }
+
+      // Refresh transactions
+      const txRes = await fetch("/api/transactions", { headers: { Authorization: `Bearer ${token2}` } });
+      const txData = await txRes.json();
+      if (txRes.ok) setTransactions(txData.transactions);
+
+      setTestPaymentResult(null);
+    } catch (err: any) {
+      showToast(err.message || "Erro ao simular webhook", "error");
+    }
+  };
+
   const [selectedUsers, setSelectedUsers] = useState<Set<number>>(new Set());
   const [selectedTx, setSelectedTx] = useState<Set<number>>(new Set());
 
@@ -742,6 +814,83 @@ export default function Admin() {
               {reprocessResult.results.filter(r => r.result === 'error').map((r, i) => (
                 <p key={i} className="text-red-400">✗ {r.id}: {r.message}</p>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Modo Sandbox - Teste de Pagamentos */}
+        <div className="bg-gray-900/40 backdrop-blur-xl border border-blue-500/30 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                <ClipboardList size={16} className="text-blue-400" />
+                Modo Sandbox - Teste de Pagamentos
+              </h3>
+              <p className="text-gray-500 text-xs mt-0.5">Cria transações de teste sem usar a API real da Safefy</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-gray-400 text-xs">Quantidade:</label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={testQuantity}
+                onChange={(e) => setTestQuantity(parseInt(e.target.value) || 1)}
+                className="w-20 bg-black/30 border border-gray-600/50 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-blue-400/50 transition-colors"
+              />
+            </div>
+
+            <Button
+              onClick={() => handleCreateTestPayment(false)}
+              disabled={testPaymentLoading}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-4 py-2 rounded-lg text-xs disabled:opacity-50"
+            >
+              {testPaymentLoading ? "Criando..." : "Criar Pendente"}
+            </Button>
+
+            <Button
+              onClick={() => handleCreateTestPayment(true)}
+              disabled={testPaymentLoading}
+              className="bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-2 rounded-lg text-xs disabled:opacity-50"
+            >
+              {testPaymentLoading ? "Criando..." : "Criar e Completar"}
+            </Button>
+          </div>
+
+          {testPaymentResult && (
+            <div className="bg-black/30 rounded-lg p-3 text-xs space-y-2">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1 flex-1">
+                  <p className="text-gray-300">
+                    <span className="text-gray-500">ID:</span>{" "}
+                    <span className="text-white font-mono">{testPaymentResult.transaction_id}</span>
+                  </p>
+                  <p className="text-gray-300">
+                    <span className="text-gray-500">Cliente:</span> {testPaymentResult.customer?.name || "N/A"}
+                  </p>
+                  <p className="text-gray-300">
+                    <span className="text-gray-500">Quantidade:</span> {testPaymentResult.quantity} título(s)
+                  </p>
+                  <p className="text-gray-300">
+                    <span className="text-gray-500">Total:</span> R$ {testPaymentResult.total_price}
+                  </p>
+                  <p className={`font-bold ${testPaymentResult.status === 'completed' ? 'text-green-400' : 'text-yellow-400'}`}>
+                    Status: {testPaymentResult.status === 'completed' ? 'PAGO' : 'PENDENTE'}
+                  </p>
+                </div>
+
+                {testPaymentResult.status === 'pending' && (
+                  <Button
+                    onClick={() => handleSimulateWebhook(testPaymentResult.transaction_id)}
+                    className="bg-purple-500 hover:bg-purple-600 text-white font-bold px-3 py-1 rounded text-xs"
+                  >
+                    Simular Pagamento
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>
