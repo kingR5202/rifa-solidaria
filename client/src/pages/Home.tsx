@@ -13,13 +13,13 @@ import { IMAGE_URLS } from "@shared/imageUrls";
 import { Menu } from "lucide-react";
 import { trackMetaEvent } from "@/components/TrackingScripts";
 
-const PRICE_PER_TITLE = 10.0;
 const TRANSACTION_FEE = 2.23;
 const PROXY_URL = "/api/proxy";
 
 export default function Home() {
   const [quantity, setQuantity] = useState(1);
-  const [totalPrice, setTotalPrice] = useState(PRICE_PER_TITLE);
+  const [pricePerTitle, setPricePerTitle] = useState(10.0);
+  const [totalPrice, setTotalPrice] = useState(10.0);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isPixOpen, setIsPixOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,12 +75,19 @@ export default function Home() {
     }).catch(() => {});
   };
 
-  // Load checkout fields config
+  // Load checkout fields config and ticket price
   useEffect(() => {
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => {
         if (data.checkout_fields) setCheckoutFields(data.checkout_fields);
+        if (data.ticket_price) {
+          const price = parseFloat(data.ticket_price);
+          if (!isNaN(price) && price > 0) {
+            setPricePerTitle(price);
+            setTotalPrice(price);
+          }
+        }
       })
       .catch(() => {});
   }, []);
@@ -125,6 +132,8 @@ export default function Home() {
                   transaction_id: pixData.transactionId,
                   customer_name: customerData.name,
                   customer_phone: customerData.phone,
+                  customer_email: customerData.email || null,
+                  customer_cpf: customerData.cpf || null,
                   quantity,
                   total_price: totalPrice,
                 }),
@@ -358,7 +367,7 @@ export default function Home() {
         <Carousel onMeusTitulos={handleMeusTitulos} />
 
         {/* Quantity Selector */}
-        <QuantitySelector onQuantityChange={handleQuantityChange} />
+        <QuantitySelector onQuantityChange={handleQuantityChange} pricePerTitle={pricePerTitle} />
 
         {/* CTA Button */}
         <div className="pt-4">

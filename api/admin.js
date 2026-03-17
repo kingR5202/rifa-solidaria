@@ -38,7 +38,7 @@ export default async function handler(req, res) {
         if (req.method === 'GET') {
             // Get all orders
             const orders = await supabaseFetch(
-                'orders?select=id,transaction_id,customer_name,customer_phone,quantity,total_price,payment_status,codes,created_at&order=created_at.desc'
+                'orders?select=id,transaction_id,customer_name,customer_phone,customer_email,customer_cpf,quantity,total_price,payment_status,codes,created_at&order=created_at.desc'
             );
 
             // Calculate stats from results

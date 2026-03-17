@@ -13,6 +13,8 @@ interface Order {
   transaction_id: string;
   customer_name: string;
   customer_phone: string;
+  customer_email?: string;
+  customer_cpf?: string;
   quantity: number;
   total_price: number;
   payment_status: string;
@@ -56,6 +58,7 @@ export default function Admin() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
+  const [orderSearch, setOrderSearch] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<"orders" | "users" | "pix">("orders");
@@ -87,6 +90,8 @@ export default function Admin() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [utmifyTestResult, setUtmifyTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [utmifyTestLoading, setUtmifyTestLoading] = useState(false);
+  const [ticketPrice, setTicketPrice] = useState("10.00");
+  const [ticketPriceSaved, setTicketPriceSaved] = useState(false);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     const id = Date.now();
@@ -235,6 +240,7 @@ export default function Admin() {
         }
         if (settingsData.resend_api_key) setResendApiKey(settingsData.resend_api_key);
         if (settingsData.checkify_api_key) setCheckifyApiKey(settingsData.checkify_api_key);
+        if (settingsData.ticket_price) setTicketPrice(String(settingsData.ticket_price));
       } catch {}
     } catch (err: any) {
       setError(err?.message || "Erro ao conectar");
@@ -289,6 +295,7 @@ export default function Admin() {
         }
         if (settingsData.resend_api_key) setResendApiKey(settingsData.resend_api_key);
         if (settingsData.checkify_api_key) setCheckifyApiKey(settingsData.checkify_api_key);
+        if (settingsData.ticket_price) setTicketPrice(String(settingsData.ticket_price));
       } catch {}
     } catch {
       sessionStorage.removeItem("admin_token");
@@ -400,6 +407,26 @@ export default function Admin() {
       showToast("Link do Instagram salvo com sucesso!");
     } catch {
       showToast("Erro ao salvar Instagram", "error");
+    }
+  };
+
+  const handleSaveTicketPrice = async () => {
+    const price = parseFloat(ticketPrice);
+    if (isNaN(price) || price <= 0) {
+      showToast("Valor inválido", "error");
+      return;
+    }
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticket_price: price }),
+      });
+      setTicketPriceSaved(true);
+      setTimeout(() => setTicketPriceSaved(false), 2000);
+      showToast("Valor do título salvo com sucesso!");
+    } catch {
+      showToast("Erro ao salvar valor do título", "error");
     }
   };
 
@@ -632,6 +659,34 @@ export default function Admin() {
             </div>
           </div>
         )}
+
+        {/* Valor do Título */}
+        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl p-4">
+          <label className="block text-gray-400 text-sm font-bold mb-2">
+            <div className="flex items-center gap-2">
+              <DollarSign size={16} className="text-yellow-400" />
+              Valor do Título (R$)
+            </div>
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={ticketPrice}
+              onChange={(e) => setTicketPrice(e.target.value)}
+              placeholder="10.00"
+              className="w-40 bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+            />
+            <Button
+              onClick={handleSaveTicketPrice}
+              className="bg-yellow-400 text-black font-bold px-6 rounded-lg hover:bg-yellow-300 text-sm"
+            >
+              {ticketPriceSaved ? "Salvo!" : "Salvar"}
+            </Button>
+          </div>
+          <p className="text-gray-500 text-xs mt-1">Preço por título exibido na página de compra</p>
+        </div>
 
         {/* Instagram Link */}
         <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl p-4">
@@ -1019,104 +1074,42 @@ export default function Admin() {
         {/* Orders Table */}
         {activeTab === "orders" && (
         <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-gray-600/30">
+          <div className="p-4 border-b border-gray-600/30 space-y-3">
             <h2 className="text-lg font-bold text-white">
               Todos os Pedidos ({orders.length})
             </h2>
+            <input
+              type="text"
+              value={orderSearch}
+              onChange={(e) => setOrderSearch(e.target.value)}
+              placeholder="Buscar por nome, telefone, email, CPF ou código..."
+              className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+            />
           </div>
 
-          {orders.length === 0 ? (
+          {(() => {
+            const filtered = orders.filter((o) => {
+              if (!orderSearch) return true;
+              const s = orderSearch.toLowerCase();
+              return (
+                o.customer_name?.toLowerCase().includes(s) ||
+                o.customer_phone?.includes(s) ||
+                o.customer_email?.toLowerCase().includes(s) ||
+                o.customer_cpf?.includes(s) ||
+                o.codes?.includes(s) ||
+                String(o.id).includes(s)
+              );
+            });
+
+            return filtered.length === 0 ? (
             <div className="p-8 text-center text-gray-400">
-              Nenhum pedido encontrado
+              {orderSearch ? "Nenhum pedido encontrado para essa busca" : "Nenhum pedido encontrado"}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              {/* Desktop table */}
-              <table className="w-full text-sm hidden md:table">
-                <thead>
-                  <tr className="border-b border-gray-600/30 text-gray-400">
-                    <th className="text-left p-3">ID</th>
-                    <th className="text-left p-3">Data</th>
-                    <th className="text-left p-3">Cliente</th>
-                    <th className="text-left p-3">Telefone</th>
-                    <th className="text-center p-3">Qtd</th>
-                    <th className="text-right p-3">Valor</th>
-                    <th className="text-center p-3">Status</th>
-                    <th className="text-center p-3">Códigos</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((order) => (
-                    <tr
-                      key={order.id}
-                      className="border-b border-gray-600/10 hover:bg-gray-800/30 transition-colors"
-                    >
-                      <td className="p-3 text-gray-400">#{order.id}</td>
-                      <td className="p-3 text-gray-300">
-                        {formatDate(order.created_at)}
-                      </td>
-                      <td className="p-3 text-white font-medium">
-                        {order.customer_name}
-                      </td>
-                      <td className="p-3 text-gray-300">
-                        {order.customer_phone}
-                      </td>
-                      <td className="p-3 text-center text-green-400 font-bold">
-                        {order.quantity}
-                      </td>
-                      <td className="p-3 text-right text-green-400 font-bold">
-                        R$ {Number(order.total_price).toFixed(2).replace(".", ",")}
-                      </td>
-                      <td className="p-3 text-center">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-bold ${
-                            order.payment_status === "paid"
-                              ? "bg-green-500/20 text-green-400"
-                              : "bg-yellow-500/20 text-yellow-400"
-                          }`}
-                        >
-                          {order.payment_status === "paid"
-                            ? "Pago"
-                            : "Pendente"}
-                        </span>
-                      </td>
-                      <td className="p-3 text-center">
-                        <button
-                          onClick={() =>
-                            setExpandedOrder(
-                              expandedOrder === order.id ? null : order.id
-                            )
-                          }
-                          className="text-gray-400 hover:text-white transition-colors"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        {expandedOrder === order.id && order.codes && (
-                          <div className="absolute mt-2 bg-gray-800 border border-gray-600/50 rounded-lg p-3 shadow-xl z-10 text-left">
-                            <p className="text-xs text-gray-400 mb-1">
-                              Códigos:
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                              {order.codes.split(",").map((code, i) => (
-                                <span
-                                  key={i}
-                                  className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded text-xs font-mono"
-                                >
-                                  {code}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
+            <div>
               {/* Mobile cards */}
               <div className="md:hidden space-y-3 p-4">
-                {orders.map((order) => (
+                {filtered.map((order) => (
                   <div
                     key={order.id}
                     className="bg-black/30 border border-gray-600/30 rounded-xl p-4 space-y-2"
@@ -1143,6 +1136,16 @@ export default function Admin() {
                       <p className="text-gray-400 text-sm">
                         {order.customer_phone}
                       </p>
+                      {order.customer_email && (
+                        <p className="text-gray-400 text-sm">
+                          {order.customer_email}
+                        </p>
+                      )}
+                      {order.customer_cpf && (
+                        <p className="text-gray-500 text-xs font-mono">
+                          CPF: {order.customer_cpf}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -1161,7 +1164,7 @@ export default function Admin() {
 
                     {order.codes && (
                       <div className="pt-2 border-t border-gray-600/20">
-                        <p className="text-xs text-gray-400 mb-1">Códigos:</p>
+                        <p className="text-xs text-gray-400 mb-1">Códigos ({order.codes.split(",").length}):</p>
                         <div className="flex flex-wrap gap-1">
                           {order.codes.split(",").map((code, i) => (
                             <span
@@ -1177,8 +1180,136 @@ export default function Admin() {
                   </div>
                 ))}
               </div>
+
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-600/30 text-gray-400">
+                    <th className="text-left p-3">ID</th>
+                    <th className="text-left p-3">Data</th>
+                    <th className="text-left p-3">Cliente</th>
+                    <th className="text-left p-3">Contato</th>
+                    <th className="text-center p-3">Qtd</th>
+                    <th className="text-right p-3">Valor</th>
+                    <th className="text-center p-3">Status</th>
+                    <th className="text-center p-3">Códigos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((order) => (
+                    <>
+                    <tr
+                      key={order.id}
+                      className="border-b border-gray-600/10 hover:bg-gray-800/30 transition-colors cursor-pointer"
+                      onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                    >
+                      <td className="p-3 text-gray-400">#{order.id}</td>
+                      <td className="p-3 text-gray-300">
+                        {formatDate(order.created_at)}
+                      </td>
+                      <td className="p-3">
+                        <div className="text-white font-medium">{order.customer_name}</div>
+                        {order.customer_cpf && (
+                          <div className="text-gray-500 text-xs font-mono">CPF: {order.customer_cpf}</div>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <div className="text-gray-300">{order.customer_phone}</div>
+                        {order.customer_email && (
+                          <div className="text-gray-500 text-xs">{order.customer_email}</div>
+                        )}
+                      </td>
+                      <td className="p-3 text-center text-green-400 font-bold">
+                        {order.quantity}
+                      </td>
+                      <td className="p-3 text-right text-green-400 font-bold">
+                        R$ {Number(order.total_price).toFixed(2).replace(".", ",")}
+                      </td>
+                      <td className="p-3 text-center">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-bold ${
+                            order.payment_status === "paid"
+                              ? "bg-green-500/20 text-green-400"
+                              : "bg-yellow-500/20 text-yellow-400"
+                          }`}
+                        >
+                          {order.payment_status === "paid"
+                            ? "Pago"
+                            : "Pendente"}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedOrder(expandedOrder === order.id ? null : order.id);
+                          }}
+                          className="text-gray-400 hover:text-white transition-colors"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedOrder === order.id && order.codes && (
+                      <tr key={`expanded-${order.id}`}>
+                        <td colSpan={8} className="p-0">
+                          <div className="bg-gray-800/50 px-6 py-4 border-b border-gray-600/30">
+                            <div className="grid grid-cols-2 gap-4 mb-3">
+                              <div>
+                                <span className="text-gray-500 text-xs">Nome:</span>
+                                <p className="text-white text-sm">{order.customer_name}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500 text-xs">Telefone:</span>
+                                <p className="text-white text-sm">{order.customer_phone}</p>
+                              </div>
+                              {order.customer_email && (
+                                <div>
+                                  <span className="text-gray-500 text-xs">Email:</span>
+                                  <p className="text-white text-sm">{order.customer_email}</p>
+                                </div>
+                              )}
+                              {order.customer_cpf && (
+                                <div>
+                                  <span className="text-gray-500 text-xs">CPF:</span>
+                                  <p className="text-white text-sm font-mono">{order.customer_cpf}</p>
+                                </div>
+                              )}
+                              <div>
+                                <span className="text-gray-500 text-xs">Transaction ID:</span>
+                                <p className="text-white text-sm font-mono">{order.transaction_id}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500 text-xs">Valor Total:</span>
+                                <p className="text-green-400 text-sm font-bold">R$ {Number(order.total_price).toFixed(2).replace(".", ",")}</p>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-gray-500 text-xs mb-2">Títulos Gerados ({order.codes.split(",").length}):</p>
+                              <div className="flex flex-wrap gap-2">
+                                {order.codes.split(",").map((code, i) => (
+                                  <span
+                                    key={i}
+                                    className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm font-mono font-bold"
+                                  >
+                                    #{i + 1}: {code}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </>
+                  ))}
+                </tbody>
+              </table>
+              </div>
             </div>
-          )}
+          );
+          })()}
         </div>
         )}
 

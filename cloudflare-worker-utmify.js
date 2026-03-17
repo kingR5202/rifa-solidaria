@@ -4,9 +4,21 @@
 // 1. Acesse o Cloudflare Dashboard > Workers & Pages > Create Worker
 // 2. Cole este código no editor
 // 3. Vá em Settings > Variables and Secrets
-// 4. Adicione a variável: UTMIFY_TOKEN = seu token da Utmify
-// 5. Vá em Triggers > Add Route
-// 6. Adicione a rota: www.italiano-recomecar.site/api/utmify*
+// 4. Adicione as variáveis:
+//    - SUPABASE_URL = sua URL do Supabase (ex: https://xxx.supabase.co)
+//    - SUPABASE_KEY = sua chave do Supabase
+// 5. O token Utmify será lido automaticamente do painel Admin (tabela settings)
+
+async function getUtmifyToken(env) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/settings?select=utmify_token&limit=1`, {
+    headers: {
+      "apikey": env.SUPABASE_KEY,
+      "Authorization": `Bearer ${env.SUPABASE_KEY}`,
+    },
+  });
+  const data = await res.json();
+  return data?.[0]?.utmify_token || null;
+}
 
 export default {
   async fetch(request, env) {
@@ -27,9 +39,9 @@ export default {
     }
 
     try {
-      const token = env.UTMIFY_TOKEN;
+      const token = await getUtmifyToken(env);
       if (!token) {
-        return jsonResponse({ error: "Token Utmify não configurado no Worker" }, 400);
+        return jsonResponse({ error: "Token Utmify não configurado. Acesse o Painel Admin > Rastreamento > Utmify e salve o token." }, 400);
       }
 
       const body = await request.json();

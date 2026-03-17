@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     try {
         // POST: Save new order after payment
         if (req.method === 'POST') {
-            const { transaction_id, customer_name, customer_phone, quantity, total_price } = req.body;
+            const { transaction_id, customer_name, customer_phone, customer_email, customer_cpf, quantity, total_price } = req.body;
 
             if (!customer_name || !customer_phone || !quantity || !total_price) {
                 return res.status(400).json({ error: 'Dados incompletos' });
@@ -49,17 +49,21 @@ export default async function handler(req, res) {
             }
             const codesStr = codes.join(',');
 
+            const orderData = {
+                transaction_id: transaction_id || '',
+                customer_name,
+                customer_phone,
+                quantity,
+                total_price,
+                payment_status: 'paid',
+                codes: codesStr,
+            };
+            if (customer_email) orderData.customer_email = customer_email;
+            if (customer_cpf) orderData.customer_cpf = customer_cpf;
+
             const data = await supabaseFetch('orders', {
                 method: 'POST',
-                body: JSON.stringify({
-                    transaction_id: transaction_id || '',
-                    customer_name,
-                    customer_phone,
-                    quantity,
-                    total_price,
-                    payment_status: 'paid',
-                    codes: codesStr,
-                }),
+                body: JSON.stringify(orderData),
             });
 
             return res.status(200).json({

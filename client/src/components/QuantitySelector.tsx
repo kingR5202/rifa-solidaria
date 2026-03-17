@@ -2,23 +2,23 @@ import { useState } from "react";
 import { Minus, Plus } from "lucide-react";
 
 const PRESET_QUANTITIES = [1, 2, 3, 4, 5, 10]; // Múltiplos de 10 em reais
-const PRICE_PER_TITLE = 10.0; // Alterado de 2.50 para 10.00
 
 interface QuantitySelectorProps {
   onQuantityChange: (quantity: number, totalPrice: number) => void;
+  pricePerTitle?: number;
 }
 
-export function QuantitySelector({ onQuantityChange }: QuantitySelectorProps) {
+export function QuantitySelector({ onQuantityChange, pricePerTitle = 10.0 }: QuantitySelectorProps) {
   const [quantity, setQuantity] = useState(1);
 
   const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity > 0) {
       setQuantity(newQuantity);
-      onQuantityChange(newQuantity, newQuantity * PRICE_PER_TITLE);
+      onQuantityChange(newQuantity, newQuantity * pricePerTitle);
     }
   };
 
-  const totalPrice = quantity * PRICE_PER_TITLE;
+  const totalPrice = quantity * pricePerTitle;
 
   return (
     <div className="w-full bg-black/50 rounded-lg p-6 border-2 border-dashed border-green-500">
@@ -76,7 +76,7 @@ export function QuantitySelector({ onQuantityChange }: QuantitySelectorProps) {
           R$ {totalPrice.toFixed(2).replace(".", ",")}
         </div>
         <div className="text-white text-xs">
-          {quantity} título{quantity !== 1 ? "s" : ""} × R$ {PRICE_PER_TITLE.toFixed(2).replace(".", ",")}
+          {quantity} título{quantity !== 1 ? "s" : ""} × R$ {pricePerTitle.toFixed(2).replace(".", ",")}
         </div>
       </div>
     </div>
