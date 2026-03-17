@@ -97,6 +97,8 @@ export default function Admin() {
   const [testPaymentLoading, setTestPaymentLoading] = useState(false);
   const [testPaymentResult, setTestPaymentResult] = useState<any>(null);
   const [testQuantity, setTestQuantity] = useState(1);
+  const [utmifyFireResult, setUtmifyFireResult] = useState<any>(null);
+  const [utmifyFireLoading, setUtmifyFireLoading] = useState(false);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     const id = Date.now();
@@ -260,7 +262,7 @@ export default function Admin() {
         if (settingsData.resend_api_key) setResendApiKey(settingsData.resend_api_key);
         if (settingsData.checkify_api_key) setCheckifyApiKey(settingsData.checkify_api_key);
         if (settingsData.ticket_price) setTicketPrice(String(settingsData.ticket_price));
-      } catch {}
+      } catch { }
     } catch (err: any) {
       setError(err?.message || "Erro ao conectar");
     } finally {
@@ -316,7 +318,7 @@ export default function Admin() {
         if (settingsData.resend_api_key) setResendApiKey(settingsData.resend_api_key);
         if (settingsData.checkify_api_key) setCheckifyApiKey(settingsData.checkify_api_key);
         if (settingsData.ticket_price) setTicketPrice(String(settingsData.ticket_price));
-      } catch {}
+      } catch { }
     } catch {
       sessionStorage.removeItem("admin_token");
     }
@@ -513,10 +515,10 @@ export default function Admin() {
     setTestPaymentResult(null);
     const token = sessionStorage.getItem("admin_token") || "";
     try {
-      const res = await fetch("/api/test-payment", {
+      const res = await fetch("/api/sandbox", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ quantity: testQuantity, autoComplete }),
+        body: JSON.stringify({ action: "create", quantity: testQuantity, autoComplete }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao criar pagamento de teste");
@@ -545,17 +547,27 @@ export default function Admin() {
     }
   };
 
-  const handleSimulateWebhook = async (transactionId: string) => {
+  const handleSimulateWebhook = async (transactionId: string, isRealEvent: boolean = false) => {
+    if (isRealEvent) {
+      setUtmifyFireLoading(true);
+      setUtmifyFireResult(null);
+    }
     const token = sessionStorage.getItem("admin_token") || "";
     try {
-      const res = await fetch("/api/test-webhook", {
+      const res = await fetch("/api/sandbox", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ transaction_id: transactionId }),
+        body: JSON.stringify({ action: "webhook", transaction_id: transactionId, isRealEvent }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao simular webhook");
-      showToast("Webhook simulado com sucesso!");
+
+      if (isRealEvent) {
+        setUtmifyFireResult(data);
+        showToast(`✅ Disparado como REAL para UTMify! Modo: ${data.utmify_mode || 'REAL'}`);
+      } else {
+        showToast("Webhook simulado com sucesso! (isTest: true)");
+      }
 
       // Refresh orders and transactions
       const token2 = sessionStorage.getItem("admin_token") || "";
@@ -571,9 +583,11 @@ export default function Admin() {
       const txData = await txRes.json();
       if (txRes.ok) setTransactions(txData.transactions);
 
-      setTestPaymentResult(null);
+      if (!isRealEvent) setTestPaymentResult(null);
     } catch (err: any) {
       showToast(err.message || "Erro ao simular webhook", "error");
+    } finally {
+      if (isRealEvent) setUtmifyFireLoading(false);
     }
   };
 
@@ -699,11 +713,10 @@ export default function Admin() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-xl text-sm font-medium animate-scaleIn ${
-              toast.type === "success"
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-xl text-sm font-medium animate-scaleIn ${toast.type === "success"
                 ? "bg-green-500/20 border-green-500/40 text-green-400"
                 : "bg-red-500/20 border-red-500/40 text-red-400"
-            }`}
+              }`}
             style={{ animation: "scaleIn 0.3s ease-out" }}
           >
             {toast.type === "success" ? <CheckCircle size={16} /> : <XCircle size={16} />}
@@ -819,20 +832,19 @@ export default function Admin() {
         </div>
 
         {/* Modo Sandbox - Teste de Pagamentos */}
-        <div className="bg-gray-900/40 backdrop-blur-xl border border-blue-500/30 rounded-xl p-4 space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h3 className="text-white font-bold text-sm flex items-center gap-2">
-                <ClipboardList size={16} className="text-blue-400" />
-                Modo Sandbox - Teste de Pagamentos
-              </h3>
-              <p className="text-gray-500 text-xs mt-0.5">Cria transações de teste sem usar a API real da Safefy</p>
-            </div>
+        <div className="bg-gray-900/40 backdrop-blur-xl border border-blue-500/30 rounded-xl p-4 space-y-4">
+          <div>
+            <h3 className="text-white font-bold text-sm flex items-center gap-2">
+              <ClipboardList size={16} className="text-blue-400" />
+              Modo Sandbox - Teste de Pagamentos
+            </h3>
+            <p className="text-gray-500 text-xs mt-0.5">Cria transações de teste sem usar a API real da Safefy. Use "Criar e Completar" e depois "🚀 Disparar como PAID" para testar o UTMify.</p>
           </div>
 
+          {/* Criar transação */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
-              <label className="text-gray-400 text-xs">Quantidade:</label>
+              <label className="text-gray-400 text-xs">Títulos:</label>
               <input
                 type="number"
                 min="1"
@@ -846,51 +858,92 @@ export default function Admin() {
             <Button
               onClick={() => handleCreateTestPayment(false)}
               disabled={testPaymentLoading}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-4 py-2 rounded-lg text-xs disabled:opacity-50"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg text-xs disabled:opacity-50"
             >
-              {testPaymentLoading ? "Criando..." : "Criar Pendente"}
+              {testPaymentLoading ? "Criando..." : "1️⃣ Criar Pendente"}
             </Button>
 
             <Button
               onClick={() => handleCreateTestPayment(true)}
               disabled={testPaymentLoading}
-              className="bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-2 rounded-lg text-xs disabled:opacity-50"
+              className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold px-4 py-2 rounded-lg text-xs disabled:opacity-50"
             >
-              {testPaymentLoading ? "Criando..." : "Criar e Completar"}
+              {testPaymentLoading ? "Criando..." : "2️⃣ Criar e Completar (isTest: true)"}
             </Button>
           </div>
 
+          {/* Resultado da criação */}
           {testPaymentResult && (
-            <div className="bg-black/30 rounded-lg p-3 text-xs space-y-2">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1 flex-1">
+            <div className="bg-black/30 border border-gray-600/20 rounded-lg p-3 text-xs space-y-2">
+              <div className="flex items-start justify-between gap-2 flex-wrap">
+                <div className="space-y-1 flex-1 min-w-0">
                   <p className="text-gray-300">
                     <span className="text-gray-500">ID:</span>{" "}
-                    <span className="text-white font-mono">{testPaymentResult.transaction_id}</span>
+                    <span className="text-white font-mono break-all">{testPaymentResult.transaction_id}</span>
                   </p>
                   <p className="text-gray-300">
                     <span className="text-gray-500">Cliente:</span> {testPaymentResult.customer?.name || "N/A"}
                   </p>
                   <p className="text-gray-300">
-                    <span className="text-gray-500">Quantidade:</span> {testPaymentResult.quantity} título(s)
-                  </p>
-                  <p className="text-gray-300">
-                    <span className="text-gray-500">Total:</span> R$ {testPaymentResult.total_price}
+                    <span className="text-gray-500">Qtd:</span> {testPaymentResult.quantity} título(s) —
+                    <span className="text-gray-500"> Total:</span> R$ {testPaymentResult.total_price}
                   </p>
                   <p className={`font-bold ${testPaymentResult.status === 'completed' ? 'text-green-400' : 'text-yellow-400'}`}>
-                    Status: {testPaymentResult.status === 'completed' ? 'PAGO' : 'PENDENTE'}
+                    Status: {testPaymentResult.status === 'completed' ? '✅ PAGO' : '⏳ PENDENTE'}
                   </p>
                 </div>
 
-                {testPaymentResult.status === 'pending' && (
-                  <Button
-                    onClick={() => handleSimulateWebhook(testPaymentResult.transaction_id)}
-                    className="bg-purple-500 hover:bg-purple-600 text-white font-bold px-3 py-1 rounded text-xs"
-                  >
-                    Simular Pagamento
-                  </Button>
-                )}
+                <div className="flex flex-col gap-2">
+                  {testPaymentResult.status === 'pending' && (
+                    <Button
+                      onClick={() => handleSimulateWebhook(testPaymentResult.transaction_id, false)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-3 py-1.5 rounded text-xs"
+                    >
+                      Simular Pagamento (isTest: true)
+                    </Button>
+                  )}
+                  {(testPaymentResult.status === 'pending' || testPaymentResult.status === 'completed') && (
+                    <Button
+                      onClick={() => handleSimulateWebhook(testPaymentResult.transaction_id, true)}
+                      disabled={utmifyFireLoading}
+                      className="bg-green-600 hover:bg-green-700 text-white font-bold px-3 py-1.5 rounded text-xs disabled:opacity-50"
+                    >
+                      {utmifyFireLoading ? "Disparando..." : "🚀 Disparar como PAID (Real)"}
+                    </Button>
+                  )}
+                </div>
               </div>
+            </div>
+          )}
+
+          {/* Resultado UTMify Real */}
+          {utmifyFireResult && (
+            <div className={`rounded-lg p-3 text-xs space-y-1.5 border ${utmifyFireResult.utmify_result?.ok
+                ? 'bg-green-900/20 border-green-500/30'
+                : 'bg-red-900/20 border-red-500/30'
+              }`}>
+              <p className={`font-bold ${utmifyFireResult.utmify_result?.ok ? 'text-green-400' : 'text-red-400'
+                }`}>
+                {utmifyFireResult.utmify_result?.ok ? '✅ UTMify recebeu o evento!' : '❌ Erro no UTMify'}
+              </p>
+              <p className="text-gray-300">
+                <span className="text-gray-500">Modo:</span> <span className="font-mono text-yellow-300">{utmifyFireResult.utmify_mode}</span>
+              </p>
+              <p className="text-gray-300">
+                <span className="text-gray-500">Order ID:</span> <span className="font-mono">{utmifyFireResult.transaction_id}</span>
+              </p>
+              {utmifyFireResult.utmify_result?.data && (
+                <p className="text-gray-400 font-mono break-all">
+                  Resposta: {JSON.stringify(utmifyFireResult.utmify_result.data)}
+                </p>
+              )}
+              {utmifyFireResult.utmify_result?.error && (
+                <p className="text-red-400">Erro: {utmifyFireResult.utmify_result.error}</p>
+              )}
+              <button
+                onClick={() => setUtmifyFireResult(null)}
+                className="text-gray-500 hover:text-gray-300 text-xs mt-1"
+              >fechar</button>
             </div>
           )}
         </div>
@@ -961,13 +1014,12 @@ export default function Admin() {
                 onDragStart={() => handleDragStart(index)}
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDragEnd={handleDragEnd}
-                className={`flex items-center gap-3 px-3 py-3 rounded-lg border transition-all text-sm select-none ${
-                  dragIndex === index
+                className={`flex items-center gap-3 px-3 py-3 rounded-lg border transition-all text-sm select-none ${dragIndex === index
                     ? "border-yellow-400 bg-yellow-400/20 scale-[1.02] shadow-lg shadow-yellow-400/10"
                     : field.enabled
-                    ? "border-yellow-400/60 bg-yellow-400/10 text-yellow-400"
-                    : "border-gray-600/30 bg-black/20 text-gray-400 hover:border-gray-500/50"
-                }`}
+                      ? "border-yellow-400/60 bg-yellow-400/10 text-yellow-400"
+                      : "border-gray-600/30 bg-black/20 text-gray-400 hover:border-gray-500/50"
+                  }`}
               >
                 <GripVertical size={16} className="text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0" />
                 <span className="text-gray-500 text-xs font-mono w-5">{index + 1}.</span>
@@ -1041,11 +1093,10 @@ export default function Admin() {
                 {allMetaEvents.map((evt) => (
                   <label
                     key={evt.id}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors text-sm ${
-                      metaEvents.includes(evt.id)
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors text-sm ${metaEvents.includes(evt.id)
                         ? "border-yellow-400/60 bg-yellow-400/10 text-yellow-400"
                         : "border-gray-600/30 bg-black/20 text-gray-400 hover:border-gray-500/50"
-                    }`}
+                      }`}
                   >
                     <input
                       type="checkbox"
@@ -1156,151 +1207,148 @@ export default function Admin() {
 
         {/* CPF Lookup */}
         {checkifyApiKey && (
-        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl p-4 space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Users size={18} className="text-yellow-400" />
-            <h3 className="text-white font-bold">Consulta CPF</h3>
-          </div>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={cpfQuery}
-              onChange={(e) => setCpfQuery(formatCpfInput(e.target.value))}
-              placeholder="000.000.000-00"
-              className="flex-1 bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm font-mono"
-              onKeyDown={(e) => e.key === "Enter" && handleCpfLookup()}
-            />
-            <Button
-              onClick={handleCpfLookup}
-              disabled={cpfLoading}
-              className="bg-yellow-400 text-black font-bold px-6 rounded-lg hover:bg-yellow-300 text-sm disabled:opacity-50"
-            >
-              {cpfLoading ? "..." : "Consultar"}
-            </Button>
-          </div>
-
-          {cpfError && (
-            <p className="text-red-400 text-sm">{cpfError}</p>
-          )}
-
-          {cpfResult?.resultado && (
-            <div className="space-y-3">
-              {/* Dados Pessoais */}
-              <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3 space-y-1">
-                <p className="text-yellow-400 text-xs font-bold mb-2">Dados Pessoais</p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                  <span className="text-gray-400">Nome:</span>
-                  <span className="text-white font-medium">{cpfResult.resultado.dados?.NOME || "-"}</span>
-                  <span className="text-gray-400">CPF:</span>
-                  <span className="text-white font-mono">{cpfResult.resultado.dados?.CPF || "-"}</span>
-                  <span className="text-gray-400">Nascimento:</span>
-                  <span className="text-white">{cpfResult.resultado.dados?.NASCIMENTO || "-"}</span>
-                  <span className="text-gray-400">Sexo:</span>
-                  <span className="text-white">{cpfResult.resultado.dados?.SEXO === "M" ? "Masculino" : cpfResult.resultado.dados?.SEXO === "F" ? "Feminino" : "-"}</span>
-                  <span className="text-gray-400">Mãe:</span>
-                  <span className="text-white">{cpfResult.resultado.dados?.NOME_MAE || "-"}</span>
-                  <span className="text-gray-400">Situação:</span>
-                  <span className={`font-bold ${cpfResult.resultado.dados?.SITUACAO_CPF === "Regular" ? "text-green-400" : "text-red-400"}`}>
-                    {cpfResult.resultado.dados?.SITUACAO_CPF || "-"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Score & Poder Aquisitivo */}
-              {(cpfResult.resultado.score || cpfResult.resultado.poder_aquisitivo) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {cpfResult.resultado.score && (
-                    <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
-                      <p className="text-yellow-400 text-xs font-bold mb-1">Score</p>
-                      <p className="text-2xl font-bold text-white">{cpfResult.resultado.score.SCORE}</p>
-                      <p className="text-gray-400 text-xs">{cpfResult.resultado.score.FAIXA}</p>
-                    </div>
-                  )}
-                  {cpfResult.resultado.poder_aquisitivo && (
-                    <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
-                      <p className="text-yellow-400 text-xs font-bold mb-1">Poder Aquisitivo</p>
-                      <p className="text-lg font-bold text-white">{cpfResult.resultado.poder_aquisitivo.FAIXA}</p>
-                      <p className="text-gray-400 text-xs">{cpfResult.resultado.poder_aquisitivo.RENDA_ESTIMADA}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Telefones */}
-              {cpfResult.resultado.telefones?.length > 0 && (
-                <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
-                  <p className="text-yellow-400 text-xs font-bold mb-2">Telefones</p>
-                  <div className="flex flex-wrap gap-2">
-                    {cpfResult.resultado.telefones.map((tel: any, i: number) => (
-                      <span key={i} className="bg-gray-700/50 text-white px-2 py-1 rounded text-xs font-mono">
-                        {tel.TELEFONE || tel.numero || JSON.stringify(tel)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Endereços */}
-              {cpfResult.resultado.enderecos?.length > 0 && (
-                <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
-                  <p className="text-yellow-400 text-xs font-bold mb-2">Endereços</p>
-                  {cpfResult.resultado.enderecos.map((end: any, i: number) => (
-                    <p key={i} className="text-white text-xs mb-1">
-                      {end.LOGRADOURO || end.endereco || ""} {end.NUMERO || ""} {end.BAIRRO ? `- ${end.BAIRRO}` : ""} {end.CIDADE ? `- ${end.CIDADE}/${end.UF}` : ""}
-                      {end.CEP ? ` (${end.CEP})` : ""}
-                    </p>
-                  ))}
-                </div>
-              )}
-
-              {/* Emails */}
-              {cpfResult.resultado.emails?.length > 0 && (
-                <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
-                  <p className="text-yellow-400 text-xs font-bold mb-2">E-mails</p>
-                  <div className="flex flex-wrap gap-2">
-                    {cpfResult.resultado.emails.map((em: any, i: number) => (
-                      <span key={i} className="bg-gray-700/50 text-white px-2 py-1 rounded text-xs">
-                        {em.EMAIL || em.email || JSON.stringify(em)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+          <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl p-4 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Users size={18} className="text-yellow-400" />
+              <h3 className="text-white font-bold">Consulta CPF</h3>
             </div>
-          )}
-        </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={cpfQuery}
+                onChange={(e) => setCpfQuery(formatCpfInput(e.target.value))}
+                placeholder="000.000.000-00"
+                className="flex-1 bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm font-mono"
+                onKeyDown={(e) => e.key === "Enter" && handleCpfLookup()}
+              />
+              <Button
+                onClick={handleCpfLookup}
+                disabled={cpfLoading}
+                className="bg-yellow-400 text-black font-bold px-6 rounded-lg hover:bg-yellow-300 text-sm disabled:opacity-50"
+              >
+                {cpfLoading ? "..." : "Consultar"}
+              </Button>
+            </div>
+
+            {cpfError && (
+              <p className="text-red-400 text-sm">{cpfError}</p>
+            )}
+
+            {cpfResult?.resultado && (
+              <div className="space-y-3">
+                {/* Dados Pessoais */}
+                <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3 space-y-1">
+                  <p className="text-yellow-400 text-xs font-bold mb-2">Dados Pessoais</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                    <span className="text-gray-400">Nome:</span>
+                    <span className="text-white font-medium">{cpfResult.resultado.dados?.NOME || "-"}</span>
+                    <span className="text-gray-400">CPF:</span>
+                    <span className="text-white font-mono">{cpfResult.resultado.dados?.CPF || "-"}</span>
+                    <span className="text-gray-400">Nascimento:</span>
+                    <span className="text-white">{cpfResult.resultado.dados?.NASCIMENTO || "-"}</span>
+                    <span className="text-gray-400">Sexo:</span>
+                    <span className="text-white">{cpfResult.resultado.dados?.SEXO === "M" ? "Masculino" : cpfResult.resultado.dados?.SEXO === "F" ? "Feminino" : "-"}</span>
+                    <span className="text-gray-400">Mãe:</span>
+                    <span className="text-white">{cpfResult.resultado.dados?.NOME_MAE || "-"}</span>
+                    <span className="text-gray-400">Situação:</span>
+                    <span className={`font-bold ${cpfResult.resultado.dados?.SITUACAO_CPF === "Regular" ? "text-green-400" : "text-red-400"}`}>
+                      {cpfResult.resultado.dados?.SITUACAO_CPF || "-"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Score & Poder Aquisitivo */}
+                {(cpfResult.resultado.score || cpfResult.resultado.poder_aquisitivo) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {cpfResult.resultado.score && (
+                      <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
+                        <p className="text-yellow-400 text-xs font-bold mb-1">Score</p>
+                        <p className="text-2xl font-bold text-white">{cpfResult.resultado.score.SCORE}</p>
+                        <p className="text-gray-400 text-xs">{cpfResult.resultado.score.FAIXA}</p>
+                      </div>
+                    )}
+                    {cpfResult.resultado.poder_aquisitivo && (
+                      <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
+                        <p className="text-yellow-400 text-xs font-bold mb-1">Poder Aquisitivo</p>
+                        <p className="text-lg font-bold text-white">{cpfResult.resultado.poder_aquisitivo.FAIXA}</p>
+                        <p className="text-gray-400 text-xs">{cpfResult.resultado.poder_aquisitivo.RENDA_ESTIMADA}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Telefones */}
+                {cpfResult.resultado.telefones?.length > 0 && (
+                  <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
+                    <p className="text-yellow-400 text-xs font-bold mb-2">Telefones</p>
+                    <div className="flex flex-wrap gap-2">
+                      {cpfResult.resultado.telefones.map((tel: any, i: number) => (
+                        <span key={i} className="bg-gray-700/50 text-white px-2 py-1 rounded text-xs font-mono">
+                          {tel.TELEFONE || tel.numero || JSON.stringify(tel)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Endereços */}
+                {cpfResult.resultado.enderecos?.length > 0 && (
+                  <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
+                    <p className="text-yellow-400 text-xs font-bold mb-2">Endereços</p>
+                    {cpfResult.resultado.enderecos.map((end: any, i: number) => (
+                      <p key={i} className="text-white text-xs mb-1">
+                        {end.LOGRADOURO || end.endereco || ""} {end.NUMERO || ""} {end.BAIRRO ? `- ${end.BAIRRO}` : ""} {end.CIDADE ? `- ${end.CIDADE}/${end.UF}` : ""}
+                        {end.CEP ? ` (${end.CEP})` : ""}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {/* Emails */}
+                {cpfResult.resultado.emails?.length > 0 && (
+                  <div className="bg-black/30 border border-gray-600/30 rounded-lg p-3">
+                    <p className="text-yellow-400 text-xs font-bold mb-2">E-mails</p>
+                    <div className="flex flex-wrap gap-2">
+                      {cpfResult.resultado.emails.map((em: any, i: number) => (
+                        <span key={i} className="bg-gray-700/50 text-white px-2 py-1 rounded text-xs">
+                          {em.EMAIL || em.email || JSON.stringify(em)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Tabs */}
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setActiveTab("orders")}
-            className={`px-5 py-3 rounded-lg font-bold transition-colors text-sm ${
-              activeTab === "orders"
+            className={`px-5 py-3 rounded-lg font-bold transition-colors text-sm ${activeTab === "orders"
                 ? "bg-yellow-400 text-black"
                 : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-            }`}
+              }`}
           >
             Pedidos ({orders.length})
           </button>
           <button
             onClick={() => setActiveTab("pix")}
-            className={`px-5 py-3 rounded-lg font-bold transition-colors text-sm ${
-              activeTab === "pix"
+            className={`px-5 py-3 rounded-lg font-bold transition-colors text-sm ${activeTab === "pix"
                 ? "bg-yellow-400 text-black"
                 : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-            }`}
+              }`}
           >
             PIX Gerados ({transactions.length})
           </button>
           <button
             onClick={() => setActiveTab("users")}
-            className={`px-5 py-3 rounded-lg font-bold transition-colors text-sm ${
-              activeTab === "users"
+            className={`px-5 py-3 rounded-lg font-bold transition-colors text-sm ${activeTab === "users"
                 ? "bg-yellow-400 text-black"
                 : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-            }`}
+              }`}
           >
             Usuários ({users.length})
           </button>
@@ -1308,463 +1356,459 @@ export default function Admin() {
 
         {/* Orders Table */}
         {activeTab === "orders" && (
-        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-gray-600/30 space-y-3">
-            <h2 className="text-lg font-bold text-white">
-              Todos os Pedidos ({orders.length})
-            </h2>
-            <input
-              type="text"
-              value={orderSearch}
-              onChange={(e) => setOrderSearch(e.target.value)}
-              placeholder="Buscar por nome, telefone, email, CPF ou código..."
-              className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
-            />
-          </div>
-
-          {(() => {
-            const filtered = orders.filter((o) => {
-              if (!orderSearch) return true;
-              const s = orderSearch.toLowerCase();
-              return (
-                o.customer_name?.toLowerCase().includes(s) ||
-                o.customer_phone?.includes(s) ||
-                o.customer_email?.toLowerCase().includes(s) ||
-                o.customer_cpf?.includes(s) ||
-                o.codes?.includes(s) ||
-                String(o.id).includes(s)
-              );
-            });
-
-            return filtered.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">
-              {orderSearch ? "Nenhum pedido encontrado para essa busca" : "Nenhum pedido encontrado"}
+          <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl overflow-hidden">
+            <div className="p-4 border-b border-gray-600/30 space-y-3">
+              <h2 className="text-lg font-bold text-white">
+                Todos os Pedidos ({orders.length})
+              </h2>
+              <input
+                type="text"
+                value={orderSearch}
+                onChange={(e) => setOrderSearch(e.target.value)}
+                placeholder="Buscar por nome, telefone, email, CPF ou código..."
+                className="w-full bg-black/30 border border-gray-600/50 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 outline-none focus:border-yellow-400/50 transition-colors text-sm"
+              />
             </div>
-          ) : (
-            <div>
-              {/* Mobile cards */}
-              <div className="md:hidden space-y-3 p-4">
-                {filtered.map((order) => (
-                  <div
-                    key={order.id}
-                    className="bg-black/30 border border-gray-600/30 rounded-xl p-4 space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400 text-xs">
-                        #{order.id}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                          order.payment_status === "paid"
-                            ? "bg-green-500/20 text-green-400"
-                            : "bg-yellow-500/20 text-yellow-400"
-                        }`}
+
+            {(() => {
+              const filtered = orders.filter((o) => {
+                if (!orderSearch) return true;
+                const s = orderSearch.toLowerCase();
+                return (
+                  o.customer_name?.toLowerCase().includes(s) ||
+                  o.customer_phone?.includes(s) ||
+                  o.customer_email?.toLowerCase().includes(s) ||
+                  o.customer_cpf?.includes(s) ||
+                  o.codes?.includes(s) ||
+                  String(o.id).includes(s)
+                );
+              });
+
+              return filtered.length === 0 ? (
+                <div className="p-8 text-center text-gray-400">
+                  {orderSearch ? "Nenhum pedido encontrado para essa busca" : "Nenhum pedido encontrado"}
+                </div>
+              ) : (
+                <div>
+                  {/* Mobile cards */}
+                  <div className="md:hidden space-y-3 p-4">
+                    {filtered.map((order) => (
+                      <div
+                        key={order.id}
+                        className="bg-black/30 border border-gray-600/30 rounded-xl p-4 space-y-2"
                       >
-                        {order.payment_status === "paid" ? "Pago" : "Pendente"}
-                      </span>
-                    </div>
-
-                    <div>
-                      <p className="text-white font-bold">
-                        {order.customer_name}
-                      </p>
-                      <p className="text-gray-400 text-sm">
-                        {order.customer_phone}
-                      </p>
-                      {order.customer_email && (
-                        <p className="text-gray-400 text-sm">
-                          {order.customer_email}
-                        </p>
-                      )}
-                      {order.customer_cpf && (
-                        <p className="text-gray-500 text-xs font-mono">
-                          CPF: {order.customer_cpf}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400 text-sm">
-                        {order.quantity} título
-                        {order.quantity !== 1 ? "s" : ""}
-                      </span>
-                      <span className="text-green-400 font-bold">
-                        R$ {Number(order.total_price).toFixed(2).replace(".", ",")}
-                      </span>
-                    </div>
-
-                    <p className="text-gray-500 text-xs">
-                      {formatDate(order.created_at)}
-                    </p>
-
-                    {order.codes && (
-                      <div className="pt-2 border-t border-gray-600/20">
-                        <p className="text-xs text-gray-400 mb-1">Códigos ({order.codes.split(",").length}):</p>
-                        <div className="flex flex-wrap gap-1">
-                          {order.codes.split(",").map((code, i) => (
-                            <span
-                              key={i}
-                              className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded text-xs font-mono"
-                            >
-                              {code}
-                            </span>
-                          ))}
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400 text-xs">
+                            #{order.id}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-bold ${order.payment_status === "paid"
+                                ? "bg-green-500/20 text-green-400"
+                                : "bg-yellow-500/20 text-yellow-400"
+                              }`}
+                          >
+                            {order.payment_status === "paid" ? "Pago" : "Pendente"}
+                          </span>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
 
-              {/* Desktop table */}
-              <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-600/30 text-gray-400">
-                    <th className="text-left p-3">ID</th>
-                    <th className="text-left p-3">Data</th>
-                    <th className="text-left p-3">Cliente</th>
-                    <th className="text-left p-3">Contato</th>
-                    <th className="text-center p-3">Qtd</th>
-                    <th className="text-right p-3">Valor</th>
-                    <th className="text-center p-3">Status</th>
-                    <th className="text-center p-3">Códigos</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((order) => (
-                    <>
-                    <tr
-                      key={order.id}
-                      className="border-b border-gray-600/10 hover:bg-gray-800/30 transition-colors cursor-pointer"
-                      onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
-                    >
-                      <td className="p-3 text-gray-400">#{order.id}</td>
-                      <td className="p-3 text-gray-300">
-                        {formatDate(order.created_at)}
-                      </td>
-                      <td className="p-3">
-                        <div className="text-white font-medium">{order.customer_name}</div>
-                        {order.customer_cpf && (
-                          <div className="text-gray-500 text-xs font-mono">CPF: {order.customer_cpf}</div>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        <div className="text-gray-300">{order.customer_phone}</div>
-                        {order.customer_email && (
-                          <div className="text-gray-500 text-xs">{order.customer_email}</div>
-                        )}
-                      </td>
-                      <td className="p-3 text-center text-green-400 font-bold">
-                        {order.quantity}
-                      </td>
-                      <td className="p-3 text-right text-green-400 font-bold">
-                        R$ {Number(order.total_price).toFixed(2).replace(".", ",")}
-                      </td>
-                      <td className="p-3 text-center">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-bold ${
-                            order.payment_status === "paid"
-                              ? "bg-green-500/20 text-green-400"
-                              : "bg-yellow-500/20 text-yellow-400"
-                          }`}
-                        >
-                          {order.payment_status === "paid"
-                            ? "Pago"
-                            : "Pendente"}
-                        </span>
-                      </td>
-                      <td className="p-3 text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedOrder(expandedOrder === order.id ? null : order.id);
-                          }}
-                          className="text-gray-400 hover:text-white transition-colors"
-                        >
-                          <Eye size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                    {expandedOrder === order.id && order.codes && (
-                      <tr key={`expanded-${order.id}`}>
-                        <td colSpan={8} className="p-0">
-                          <div className="bg-gray-800/50 px-6 py-4 border-b border-gray-600/30">
-                            <div className="grid grid-cols-2 gap-4 mb-3">
-                              <div>
-                                <span className="text-gray-500 text-xs">Nome:</span>
-                                <p className="text-white text-sm">{order.customer_name}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-500 text-xs">Telefone:</span>
-                                <p className="text-white text-sm">{order.customer_phone}</p>
-                              </div>
-                              {order.customer_email && (
-                                <div>
-                                  <span className="text-gray-500 text-xs">Email:</span>
-                                  <p className="text-white text-sm">{order.customer_email}</p>
-                                </div>
-                              )}
-                              {order.customer_cpf && (
-                                <div>
-                                  <span className="text-gray-500 text-xs">CPF:</span>
-                                  <p className="text-white text-sm font-mono">{order.customer_cpf}</p>
-                                </div>
-                              )}
-                              <div>
-                                <span className="text-gray-500 text-xs">Transaction ID:</span>
-                                <p className="text-white text-sm font-mono">{order.transaction_id}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-500 text-xs">Valor Total:</span>
-                                <p className="text-green-400 text-sm font-bold">R$ {Number(order.total_price).toFixed(2).replace(".", ",")}</p>
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-gray-500 text-xs mb-2">Títulos Gerados ({order.codes.split(",").length}):</p>
-                              <div className="flex flex-wrap gap-2">
-                                {order.codes.split(",").map((code, i) => (
-                                  <span
-                                    key={i}
-                                    className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm font-mono font-bold"
-                                  >
-                                    #{i + 1}: {code}
-                                  </span>
-                                ))}
-                              </div>
+                        <div>
+                          <p className="text-white font-bold">
+                            {order.customer_name}
+                          </p>
+                          <p className="text-gray-400 text-sm">
+                            {order.customer_phone}
+                          </p>
+                          {order.customer_email && (
+                            <p className="text-gray-400 text-sm">
+                              {order.customer_email}
+                            </p>
+                          )}
+                          {order.customer_cpf && (
+                            <p className="text-gray-500 text-xs font-mono">
+                              CPF: {order.customer_cpf}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400 text-sm">
+                            {order.quantity} título
+                            {order.quantity !== 1 ? "s" : ""}
+                          </span>
+                          <span className="text-green-400 font-bold">
+                            R$ {Number(order.total_price).toFixed(2).replace(".", ",")}
+                          </span>
+                        </div>
+
+                        <p className="text-gray-500 text-xs">
+                          {formatDate(order.created_at)}
+                        </p>
+
+                        {order.codes && (
+                          <div className="pt-2 border-t border-gray-600/20">
+                            <p className="text-xs text-gray-400 mb-1">Códigos ({order.codes.split(",").length}):</p>
+                            <div className="flex flex-wrap gap-1">
+                              {order.codes.split(",").map((code, i) => (
+                                <span
+                                  key={i}
+                                  className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded text-xs font-mono"
+                                >
+                                  {code}
+                                </span>
+                              ))}
                             </div>
                           </div>
-                        </td>
-                      </tr>
-                    )}
-                    </>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            </div>
-          );
-          })()}
-        </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-600/30 text-gray-400">
+                          <th className="text-left p-3">ID</th>
+                          <th className="text-left p-3">Data</th>
+                          <th className="text-left p-3">Cliente</th>
+                          <th className="text-left p-3">Contato</th>
+                          <th className="text-center p-3">Qtd</th>
+                          <th className="text-right p-3">Valor</th>
+                          <th className="text-center p-3">Status</th>
+                          <th className="text-center p-3">Códigos</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((order) => (
+                          <>
+                            <tr
+                              key={order.id}
+                              className="border-b border-gray-600/10 hover:bg-gray-800/30 transition-colors cursor-pointer"
+                              onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                            >
+                              <td className="p-3 text-gray-400">#{order.id}</td>
+                              <td className="p-3 text-gray-300">
+                                {formatDate(order.created_at)}
+                              </td>
+                              <td className="p-3">
+                                <div className="text-white font-medium">{order.customer_name}</div>
+                                {order.customer_cpf && (
+                                  <div className="text-gray-500 text-xs font-mono">CPF: {order.customer_cpf}</div>
+                                )}
+                              </td>
+                              <td className="p-3">
+                                <div className="text-gray-300">{order.customer_phone}</div>
+                                {order.customer_email && (
+                                  <div className="text-gray-500 text-xs">{order.customer_email}</div>
+                                )}
+                              </td>
+                              <td className="p-3 text-center text-green-400 font-bold">
+                                {order.quantity}
+                              </td>
+                              <td className="p-3 text-right text-green-400 font-bold">
+                                R$ {Number(order.total_price).toFixed(2).replace(".", ",")}
+                              </td>
+                              <td className="p-3 text-center">
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs font-bold ${order.payment_status === "paid"
+                                      ? "bg-green-500/20 text-green-400"
+                                      : "bg-yellow-500/20 text-yellow-400"
+                                    }`}
+                                >
+                                  {order.payment_status === "paid"
+                                    ? "Pago"
+                                    : "Pendente"}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedOrder(expandedOrder === order.id ? null : order.id);
+                                  }}
+                                  className="text-gray-400 hover:text-white transition-colors"
+                                >
+                                  <Eye size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                            {expandedOrder === order.id && order.codes && (
+                              <tr key={`expanded-${order.id}`}>
+                                <td colSpan={8} className="p-0">
+                                  <div className="bg-gray-800/50 px-6 py-4 border-b border-gray-600/30">
+                                    <div className="grid grid-cols-2 gap-4 mb-3">
+                                      <div>
+                                        <span className="text-gray-500 text-xs">Nome:</span>
+                                        <p className="text-white text-sm">{order.customer_name}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-gray-500 text-xs">Telefone:</span>
+                                        <p className="text-white text-sm">{order.customer_phone}</p>
+                                      </div>
+                                      {order.customer_email && (
+                                        <div>
+                                          <span className="text-gray-500 text-xs">Email:</span>
+                                          <p className="text-white text-sm">{order.customer_email}</p>
+                                        </div>
+                                      )}
+                                      {order.customer_cpf && (
+                                        <div>
+                                          <span className="text-gray-500 text-xs">CPF:</span>
+                                          <p className="text-white text-sm font-mono">{order.customer_cpf}</p>
+                                        </div>
+                                      )}
+                                      <div>
+                                        <span className="text-gray-500 text-xs">Transaction ID:</span>
+                                        <p className="text-white text-sm font-mono">{order.transaction_id}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-gray-500 text-xs">Valor Total:</span>
+                                        <p className="text-green-400 text-sm font-bold">R$ {Number(order.total_price).toFixed(2).replace(".", ",")}</p>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-500 text-xs mb-2">Títulos Gerados ({order.codes.split(",").length}):</p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {order.codes.split(",").map((code, i) => (
+                                          <span
+                                            key={i}
+                                            className="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-sm font-mono font-bold"
+                                          >
+                                            #{i + 1}: {code}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         )}
 
         {/* Users Table */}
         {activeTab === "users" && (
-        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-gray-600/30 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">
-              Usuários ({users.length})
-            </h2>
-            {selectedUsers.size > 0 && (
-              <button
-                onClick={deleteSelectedUsers}
-                className="flex items-center gap-1 bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-red-500/30 transition-colors"
-              >
-                <Trash2 size={14} />
-                Deletar ({selectedUsers.size})
-              </button>
-            )}
-          </div>
-
-          {users.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">
-              Nenhum usuário encontrado
+          <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl overflow-hidden">
+            <div className="p-4 border-b border-gray-600/30 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">
+                Usuários ({users.length})
+              </h2>
+              {selectedUsers.size > 0 && (
+                <button
+                  onClick={deleteSelectedUsers}
+                  className="flex items-center gap-1 bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-red-500/30 transition-colors"
+                >
+                  <Trash2 size={14} />
+                  Deletar ({selectedUsers.size})
+                </button>
+              )}
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm hidden md:table">
-                <thead>
-                  <tr className="border-b border-gray-600/30 text-gray-400">
-                    <th className="p-3 w-10">
-                      <input
-                        type="checkbox"
-                        checked={selectedUsers.size === users.length && users.length > 0}
-                        onChange={toggleSelectAllUsers}
-                        className="accent-yellow-400"
-                      />
-                    </th>
-                    <th className="text-left p-3">ID</th>
-                    <th className="text-left p-3">Nome</th>
-                    <th className="text-left p-3">Telefone</th>
-                    <th className="text-left p-3">Cadastro</th>
-                    <th className="text-left p-3">Último Login</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr
-                      key={user.id}
-                      className={`border-b border-gray-600/10 hover:bg-gray-800/30 transition-colors ${selectedUsers.has(user.id) ? "bg-yellow-400/5" : ""}`}
-                    >
-                      <td className="p-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedUsers.has(user.id)}
-                          onChange={() => toggleSelectUser(user.id)}
-                          className="accent-yellow-400"
-                        />
-                      </td>
-                      <td className="p-3 text-gray-400">#{user.id}</td>
-                      <td className="p-3 text-white font-medium">{user.name || "-"}</td>
-                      <td className="p-3 text-gray-300">{user.phone}</td>
-                      <td className="p-3 text-gray-300">{formatDate(user.created_at)}</td>
-                      <td className="p-3 text-gray-300">{formatDate(user.last_login)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
 
-              <div className="md:hidden space-y-3 p-4">
-                {users.map((user) => (
-                  <div
-                    key={user.id}
-                    className={`bg-black/30 border rounded-xl p-4 space-y-2 ${selectedUsers.has(user.id) ? "border-yellow-400/50" : "border-gray-600/30"}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+            {users.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                Nenhum usuário encontrado
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm hidden md:table">
+                  <thead>
+                    <tr className="border-b border-gray-600/30 text-gray-400">
+                      <th className="p-3 w-10">
                         <input
                           type="checkbox"
-                          checked={selectedUsers.has(user.id)}
-                          onChange={() => toggleSelectUser(user.id)}
+                          checked={selectedUsers.size === users.length && users.length > 0}
+                          onChange={toggleSelectAllUsers}
                           className="accent-yellow-400"
                         />
-                        <span className="text-gray-400 text-xs">#{user.id}</span>
+                      </th>
+                      <th className="text-left p-3">ID</th>
+                      <th className="text-left p-3">Nome</th>
+                      <th className="text-left p-3">Telefone</th>
+                      <th className="text-left p-3">Cadastro</th>
+                      <th className="text-left p-3">Último Login</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((user) => (
+                      <tr
+                        key={user.id}
+                        className={`border-b border-gray-600/10 hover:bg-gray-800/30 transition-colors ${selectedUsers.has(user.id) ? "bg-yellow-400/5" : ""}`}
+                      >
+                        <td className="p-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedUsers.has(user.id)}
+                            onChange={() => toggleSelectUser(user.id)}
+                            className="accent-yellow-400"
+                          />
+                        </td>
+                        <td className="p-3 text-gray-400">#{user.id}</td>
+                        <td className="p-3 text-white font-medium">{user.name || "-"}</td>
+                        <td className="p-3 text-gray-300">{user.phone}</td>
+                        <td className="p-3 text-gray-300">{formatDate(user.created_at)}</td>
+                        <td className="p-3 text-gray-300">{formatDate(user.last_login)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className="md:hidden space-y-3 p-4">
+                  {users.map((user) => (
+                    <div
+                      key={user.id}
+                      className={`bg-black/30 border rounded-xl p-4 space-y-2 ${selectedUsers.has(user.id) ? "border-yellow-400/50" : "border-gray-600/30"}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedUsers.has(user.id)}
+                            onChange={() => toggleSelectUser(user.id)}
+                            className="accent-yellow-400"
+                          />
+                          <span className="text-gray-400 text-xs">#{user.id}</span>
+                        </div>
+                      </div>
+                      <p className="text-white font-bold">{user.name || "-"}</p>
+                      <p className="text-gray-300 text-sm">{user.phone}</p>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>Cadastro: {formatDate(user.created_at)}</span>
+                        <span>Login: {formatDate(user.last_login)}</span>
                       </div>
                     </div>
-                    <p className="text-white font-bold">{user.name || "-"}</p>
-                    <p className="text-gray-300 text-sm">{user.phone}</p>
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>Cadastro: {formatDate(user.created_at)}</span>
-                      <span>Login: {formatDate(user.last_login)}</span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         )}
 
         {/* PIX Transactions Table */}
         {activeTab === "pix" && (
-        <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-gray-600/30 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">
-              PIX Gerados ({transactions.length})
-            </h2>
-            {selectedTx.size > 0 && (
-              <button
-                onClick={deleteSelectedTx}
-                className="flex items-center gap-1 bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-red-500/30 transition-colors"
-              >
-                <Trash2 size={14} />
-                Deletar ({selectedTx.size})
-              </button>
-            )}
-          </div>
-
-          {transactions.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">
-              Nenhuma transação encontrada
+          <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-600/30 rounded-xl overflow-hidden">
+            <div className="p-4 border-b border-gray-600/30 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">
+                PIX Gerados ({transactions.length})
+              </h2>
+              {selectedTx.size > 0 && (
+                <button
+                  onClick={deleteSelectedTx}
+                  className="flex items-center gap-1 bg-red-500/20 text-red-400 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-red-500/30 transition-colors"
+                >
+                  <Trash2 size={14} />
+                  Deletar ({selectedTx.size})
+                </button>
+              )}
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm hidden md:table">
-                <thead>
-                  <tr className="border-b border-gray-600/30 text-gray-400">
-                    <th className="p-3 w-10">
-                      <input
-                        type="checkbox"
-                        checked={selectedTx.size === transactions.length && transactions.length > 0}
-                        onChange={toggleSelectAllTx}
-                        className="accent-yellow-400"
-                      />
-                    </th>
-                    <th className="text-left p-3">ID</th>
-                    <th className="text-left p-3">Data</th>
-                    <th className="text-left p-3">Cliente</th>
-                    <th className="text-left p-3">Telefone</th>
-                    <th className="text-center p-3">Qtd</th>
-                    <th className="text-right p-3">Valor</th>
-                    <th className="text-center p-3">Status</th>
-                    <th className="text-left p-3">Pago em</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((tx) => (
-                    <tr
-                      key={tx.id}
-                      className={`border-b border-gray-600/10 hover:bg-gray-800/30 transition-colors ${selectedTx.has(tx.id) ? "bg-yellow-400/5" : ""}`}
-                    >
-                      <td className="p-3">
+
+            {transactions.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                Nenhuma transação encontrada
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm hidden md:table">
+                  <thead>
+                    <tr className="border-b border-gray-600/30 text-gray-400">
+                      <th className="p-3 w-10">
                         <input
                           type="checkbox"
-                          checked={selectedTx.has(tx.id)}
-                          onChange={() => toggleSelectTx(tx.id)}
+                          checked={selectedTx.size === transactions.length && transactions.length > 0}
+                          onChange={toggleSelectAllTx}
                           className="accent-yellow-400"
                         />
-                      </td>
-                      <td className="p-3 text-gray-400">#{tx.id}</td>
-                      <td className="p-3 text-gray-300">{formatDate(tx.created_at)}</td>
-                      <td className="p-3 text-white font-medium">{tx.customer_name}</td>
-                      <td className="p-3 text-gray-300">{tx.customer_phone}</td>
-                      <td className="p-3 text-center text-green-400 font-bold">{tx.quantity}</td>
-                      <td className="p-3 text-right text-green-400 font-bold">
-                        R$ {Number(tx.total_price).toFixed(2).replace(".", ",")}
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          tx.status === "paid"
+                      </th>
+                      <th className="text-left p-3">ID</th>
+                      <th className="text-left p-3">Data</th>
+                      <th className="text-left p-3">Cliente</th>
+                      <th className="text-left p-3">Telefone</th>
+                      <th className="text-center p-3">Qtd</th>
+                      <th className="text-right p-3">Valor</th>
+                      <th className="text-center p-3">Status</th>
+                      <th className="text-left p-3">Pago em</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions.map((tx) => (
+                      <tr
+                        key={tx.id}
+                        className={`border-b border-gray-600/10 hover:bg-gray-800/30 transition-colors ${selectedTx.has(tx.id) ? "bg-yellow-400/5" : ""}`}
+                      >
+                        <td className="p-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedTx.has(tx.id)}
+                            onChange={() => toggleSelectTx(tx.id)}
+                            className="accent-yellow-400"
+                          />
+                        </td>
+                        <td className="p-3 text-gray-400">#{tx.id}</td>
+                        <td className="p-3 text-gray-300">{formatDate(tx.created_at)}</td>
+                        <td className="p-3 text-white font-medium">{tx.customer_name}</td>
+                        <td className="p-3 text-gray-300">{tx.customer_phone}</td>
+                        <td className="p-3 text-center text-green-400 font-bold">{tx.quantity}</td>
+                        <td className="p-3 text-right text-green-400 font-bold">
+                          R$ {Number(tx.total_price).toFixed(2).replace(".", ",")}
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${tx.status === "paid"
+                              ? "bg-green-500/20 text-green-400"
+                              : "bg-yellow-500/20 text-yellow-400"
+                            }`}>
+                            {tx.status === "paid" ? "Pago" : "Pendente"}
+                          </span>
+                        </td>
+                        <td className="p-3 text-gray-300">{tx.paid_at ? formatDate(tx.paid_at) : "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className="md:hidden space-y-3 p-4">
+                  {transactions.map((tx) => (
+                    <div
+                      key={tx.id}
+                      className={`bg-black/30 border rounded-xl p-4 space-y-2 ${selectedTx.has(tx.id) ? "border-yellow-400/50" : "border-gray-600/30"}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedTx.has(tx.id)}
+                            onChange={() => toggleSelectTx(tx.id)}
+                            className="accent-yellow-400"
+                          />
+                          <span className="text-gray-400 text-xs">#{tx.id}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${tx.status === "paid"
                             ? "bg-green-500/20 text-green-400"
                             : "bg-yellow-500/20 text-yellow-400"
-                        }`}>
+                          }`}>
                           {tx.status === "paid" ? "Pago" : "Pendente"}
                         </span>
-                      </td>
-                      <td className="p-3 text-gray-300">{tx.paid_at ? formatDate(tx.paid_at) : "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="md:hidden space-y-3 p-4">
-                {transactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className={`bg-black/30 border rounded-xl p-4 space-y-2 ${selectedTx.has(tx.id) ? "border-yellow-400/50" : "border-gray-600/30"}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedTx.has(tx.id)}
-                          onChange={() => toggleSelectTx(tx.id)}
-                          className="accent-yellow-400"
-                        />
-                        <span className="text-gray-400 text-xs">#{tx.id}</span>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                        tx.status === "paid"
-                          ? "bg-green-500/20 text-green-400"
-                          : "bg-yellow-500/20 text-yellow-400"
-                      }`}>
-                        {tx.status === "paid" ? "Pago" : "Pendente"}
-                      </span>
+                      <p className="text-white font-bold">{tx.customer_name}</p>
+                      <p className="text-gray-400 text-sm">{tx.customer_phone}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-sm">{tx.quantity} título{tx.quantity !== 1 ? "s" : ""}</span>
+                        <span className="text-green-400 font-bold">R$ {Number(tx.total_price).toFixed(2).replace(".", ",")}</span>
+                      </div>
+                      <p className="text-gray-500 text-xs">{formatDate(tx.created_at)}</p>
+                      {tx.paid_at && <p className="text-green-400/60 text-xs">Pago: {formatDate(tx.paid_at)}</p>}
                     </div>
-                    <p className="text-white font-bold">{tx.customer_name}</p>
-                    <p className="text-gray-400 text-sm">{tx.customer_phone}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400 text-sm">{tx.quantity} título{tx.quantity !== 1 ? "s" : ""}</span>
-                      <span className="text-green-400 font-bold">R$ {Number(tx.total_price).toFixed(2).replace(".", ",")}</span>
-                    </div>
-                    <p className="text-gray-500 text-xs">{formatDate(tx.created_at)}</p>
-                    {tx.paid_at && <p className="text-green-400/60 text-xs">Pago: {formatDate(tx.paid_at)}</p>}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         )}
       </main>
     </div>
