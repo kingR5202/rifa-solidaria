@@ -481,7 +481,7 @@ export default function Admin() {
     setReprocessResult(null);
     const token = sessionStorage.getItem("admin_token") || "";
     try {
-      const res = await fetch("/api/reprocess", {
+      const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
