@@ -91,8 +91,8 @@ function validateSignature(req, body, transactionId) {
     const signature = req.headers['x-safefy-signature'];
 
     if (!signature) {
-        console.log('[Webhook] No X-Safefy-Signature header present - skipping validation');
-        return true; // Allow webhooks without signature for backward compatibility
+        console.warn('[Webhook] No X-Safefy-Signature header - rejecting request');
+        return false;
     }
 
     if (!transactionId) {

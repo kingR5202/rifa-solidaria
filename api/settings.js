@@ -6,6 +6,11 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 // Fields safe to return publicly (no API keys/tokens)
 const PUBLIC_FIELDS = ['checkout_fields', 'ticket_price', 'instagram_url', 'meta_pixel_id', 'clarity_id', 'meta_domain_verification'];
 
+// Rate limit for Utmify proxy (prevent abuse)
+const utmifyRateLimit = new Map();
+const UTMIFY_MAX_REQUESTS = 5; // max per IP
+const UTMIFY_WINDOW = 60 * 1000; // 1 minute
+
 async function supabaseFetch(path, options = {}) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
         ...options,
@@ -23,7 +28,7 @@ async function supabaseFetch(path, options = {}) {
 }
 
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -36,13 +41,38 @@ export default async function handler(req, res) {
     try {
         // POST: Proxy Utmify event (frontend sends here, backend adds token and forwards)
         if (req.method === 'POST') {
+            // Rate limit by IP
+            const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || '0.0.0.0';
+            const now = Date.now();
+            const entry = utmifyRateLimit.get(ip);
+            if (entry && now - entry.start < UTMIFY_WINDOW) {
+                if (entry.count >= UTMIFY_MAX_REQUESTS) {
+                    return res.status(429).json({ error: 'Muitas requisições. Tente novamente.' });
+                }
+                entry.count++;
+            } else {
+                utmifyRateLimit.set(ip, { count: 1, start: now });
+            }
+
+            const body = req.body;
+
+            // Validate required fields
+            if (!body.orderId || !body.status || !body.customer) {
+                return res.status(400).json({ error: 'Dados incompletos' });
+            }
+
+            // Only allow safe status values
+            const allowedStatuses = ['waiting_payment', 'paid', 'refused', 'refunded', 'chargedback'];
+            if (!allowedStatuses.includes(body.status)) {
+                return res.status(400).json({ error: 'Status inválido' });
+            }
+
             const data = await supabaseFetch('settings?select=utmify_token&limit=1');
             const utmifyToken = data?.[0]?.utmify_token;
             if (!utmifyToken) {
                 return res.status(400).json({ error: 'Token Utmify não configurado' });
             }
 
-            const body = req.body;
             const payload = {
                 orderId: body.orderId,
                 platform: 'RifaSolidaria',

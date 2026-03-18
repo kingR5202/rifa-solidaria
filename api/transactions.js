@@ -20,7 +20,7 @@ async function supabaseFetch(path, options = {}) {
 }
 
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, PATCH, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -59,8 +59,13 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, id: data[0]?.id });
         }
 
-        // PATCH: Update transaction status (PUBLIC - called when payment confirmed)
+        // PATCH: Update transaction status - REQUIRES ADMIN
         if (req.method === 'PATCH') {
+            const admin = requireAdmin(req);
+            if (!admin) {
+                return res.status(401).json({ error: 'Não autorizado' });
+            }
+
             const { transaction_id, status } = req.body;
 
             if (!transaction_id || !status) {

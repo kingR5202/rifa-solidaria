@@ -1,7 +1,10 @@
 import crypto from 'crypto';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'italiancar2024';
-const JWT_SECRET = process.env.JWT_SECRET || ADMIN_PASSWORD + '_jwt_secret_2024';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!ADMIN_PASSWORD) console.error('[AUTH] ADMIN_PASSWORD env var is NOT set! Login will fail.');
+if (!JWT_SECRET) console.error('[AUTH] JWT_SECRET env var is NOT set! Token generation will fail.');
 
 // Simple rate limiting - track login attempts per IP
 const loginAttempts = new Map();
@@ -51,6 +54,7 @@ function verifyToken(token) {
 }
 
 function verifyPassword(input) {
+    if (!ADMIN_PASSWORD) return false;
     return input === ADMIN_PASSWORD;
 }
 

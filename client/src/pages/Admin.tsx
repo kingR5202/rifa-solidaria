@@ -356,7 +356,10 @@ export default function Admin() {
     setCpfError("");
     setCpfResult(null);
     try {
-      const res = await fetch(`/api/checkify?cpf=${clean}`);
+      const token = sessionStorage.getItem("admin_token") || "";
+      const res = await fetch(`/api/checkify?cpf=${clean}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
       if (!res.ok) {
         setCpfError(data.error || "Erro na consulta");
