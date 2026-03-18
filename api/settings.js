@@ -24,7 +24,7 @@ async function supabaseFetch(path, options = {}) {
 
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -34,6 +34,71 @@ export default async function handler(req, res) {
     }
 
     try {
+        // POST: Proxy Utmify event (frontend sends here, backend adds token and forwards)
+        if (req.method === 'POST') {
+            const data = await supabaseFetch('settings?select=utmify_token&limit=1');
+            const utmifyToken = data?.[0]?.utmify_token;
+            if (!utmifyToken) {
+                return res.status(400).json({ error: 'Token Utmify não configurado' });
+            }
+
+            const body = req.body;
+            const payload = {
+                orderId: body.orderId,
+                platform: 'RifaSolidaria',
+                paymentMethod: 'pix',
+                status: body.status,
+                createdAt: body.createdAt,
+                approvedDate: body.approvedDate || null,
+                refundedAt: null,
+                customer: {
+                    name: body.customer?.name || '',
+                    email: body.customer?.email || '',
+                    phone: body.customer?.phone ? body.customer.phone.replace(/\D/g, '') : null,
+                    document: body.customer?.cpf ? body.customer.cpf.replace(/\D/g, '') : null,
+                    country: 'BR',
+                },
+                products: [{
+                    id: 'produto-principal',
+                    name: 'Produto Principal',
+                    planId: null,
+                    planName: null,
+                    quantity: body.quantity || 1,
+                    priceInCents: body.totalPriceInCents ? Math.round(body.totalPriceInCents / (body.quantity || 1)) : 0,
+                }],
+                trackingParameters: {
+                    src: body.trackingParameters?.src || null,
+                    sck: body.trackingParameters?.sck || null,
+                    utm_source: body.trackingParameters?.utm_source || null,
+                    utm_campaign: body.trackingParameters?.utm_campaign || null,
+                    utm_medium: body.trackingParameters?.utm_medium || null,
+                    utm_content: body.trackingParameters?.utm_content || null,
+                    utm_term: body.trackingParameters?.utm_term || null,
+                },
+                commission: {
+                    totalPriceInCents: body.totalPriceInCents || 0,
+                    gatewayFeeInCents: 223,
+                    userCommissionInCents: (body.totalPriceInCents || 0) - 223,
+                },
+                isTest: body.isTest || false,
+            };
+
+            const utmifyRes = await fetch('https://api.utmify.com.br/api-credentials/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-token': utmifyToken,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const utmifyData = await utmifyRes.text();
+            if (!utmifyRes.ok) {
+                return res.status(utmifyRes.status).json({ error: 'Erro Utmify', details: utmifyData });
+            }
+            return res.status(200).json({ success: true, response: utmifyData });
+        }
+
         // GET: Get settings
         if (req.method === 'GET') {
             const data = await supabaseFetch('settings?select=*&limit=1');

@@ -48,9 +48,12 @@ async function sendUtmifyEvent(orderId, status, createdAt, approvedDate, custome
     const token = await getUtmifyToken();
     if (!token) return;
 
-    await fetch('https://utmify-proxy.botecoconta84.workers.dev/', {
+    await fetch('https://api.utmify.com.br/api-credentials/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-token': token,
+        },
         body: JSON.stringify({
             orderId,
             platform: 'RifaSolidaria',

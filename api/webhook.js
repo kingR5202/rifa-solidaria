@@ -69,9 +69,12 @@ async function sendUtmifyEvent(orderId, status, createdAt, approvedDate, custome
     };
 
     try {
-        await fetch('https://utmify-proxy.botecoconta84.workers.dev/', {
+        await fetch('https://api.utmify.com.br/api-credentials/orders', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-token': token,
+            },
             body: JSON.stringify(payload),
         });
         console.log('[Webhook] Utmify event sent:', status);
